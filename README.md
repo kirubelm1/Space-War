@@ -1,139 +1,144 @@
-Space-War
+# 🚀 Space-War (Open-Source HTML5 Game)
 
-Space-War is a single-file HTML5 twin-stick arena shooter built with pure HTML, CSS, and JavaScript — no external assets.
+⭐ If you like this project, give it a star on GitHub!\
+Contributions, ideas, and improvements are highly encouraged.
 
-It features: waves of enemies (chasers, shooters, splitters), upgrades, dash mechanics, pulse bombs, “juicy” particle effects, and WebAudio. The game is playable on desktop (via keyboard + mouse) and on mobile (via virtual sticks). 
-GitHub
+```{=html}
+<p align="center">
+```
+`<img src="assets/preview.png" width="850" />`{=html} `<br />`{=html}
+`<strong>`{=html}Gameplay Preview`</strong>`{=html}
+```{=html}
+</p>
+```
 
-Table of Contents
+------------------------------------------------------------------------
 
-Gameplay / Features
+A fast-paced, addictive **HTML5 space shooter game** built entirely with
+**pure JavaScript, HTML, and CSS** --- no external libraries or assets.\
+Designed and developed by **Kirubel Mesfin**, Space-War delivers
+visually rich gameplay with particle effects, enemy AI, wave
+progression, and mobile support.
 
-How to Play
+This project is open-source and ideal for learning **game loops**,
+**collision detection**, **canvas rendering**, and **web game
+mechanics**.
 
-Installation / Running Locally
+------------------------------------------------------------------------
 
-Project Structure
+## 🎮 Features
 
-Contributing
+-   ⚔️ **Multiple Enemy Types**\
+    Chasers, shooters, and split-enemies with different behaviors.
 
-License
+-   🌀 **Player Abilities**\
+    Dash, pulse bomb, rapid-fire, and smooth movement system.
 
-Credits
+-   💥 **Advanced Visual Effects**\
+    Particle explosions, trails, screen-shake, hit flashes.
 
-Future Ideas / Roadmap
+-   🔊 **Web Audio Integration**\
+    Sound effects generated directly in JavaScript.
 
-Gameplay / Features
+-   📱 **Mobile + Desktop Support**\
+    Virtual joysticks for mobile, mouse/keyboard for desktop.
 
-🎯 Waves of enemies — multiple enemy types such as “chasers”, “shooters”, and “splitters”. 
-GitHub
+-   🧠 **Smart Enemy AI**\
+    Pathfinding, targeting, movement prediction, and wave difficulty
+    scaling.
 
-🛠️ Upgrades & mechanics — dash mechanic, pulse bombs. 
-GitHub
+-   🧩 **Single-File Architecture**\
+    Fully contained in one HTML file --- no dependencies, easy
+    deployment.
 
-✨ Visual & audio polish — particles effects, WebAudio sound effects, giving a “juicy” game feel. 
-GitHub
+------------------------------------------------------------------------
 
-🌐 Cross-device support:
+## 🕹️ Controls
 
-Desktop: WASD + mouse controls. 
-GitHub
+### Desktop
 
-Mobile: Virtual sticks for touch input. 
-GitHub
+-   **WASD** --- movement\
+-   **Mouse** --- aim & shoot\
+-   **Shift** --- dash\
+-   **Space** --- pulse bomb
 
-📦 No external assets — art, audio, everything is encoded in the HTML/JS/CSS, meaning easy hosting and zero dependency on asset files. 
-GitHub
+### Mobile
 
-How to Play
+-   **Left virtual stick** --- movement\
+-   **Right virtual stick** --- aim & shoot\
+-   Auto buttons for dash & pulse
 
-On desktop: use WASD (for movement) + mouse (for aiming/shooting). 
-GitHub
+------------------------------------------------------------------------
 
-On mobile: virtual on-screen sticks will appear for movement and aiming/shooting. 
-GitHub
+## ⚙️ Installation & Setup
 
-Goal: Survive waves of enemies, use upgrades, dashes and bombs to stay alive, rack up score, and enjoy the arcade-style action.
+1.  **Clone the repo**
 
-Installation / Running Locally
+    ``` bash
+    git clone https://github.com/kirubelm1/Space-War.git
+    cd Space-War
+    ```
 
-Clone the repository:
+2.  **Open the game** Simply open `game.html` in your browser.
 
-git clone https://github.com/kirubelm1/Space-War.git
+No build system, no dependencies, nothing to install --- everything is
+inside one HTML file.
 
+------------------------------------------------------------------------
 
-Open the game.html file in any modern web browser (Chrome, Firefox, Edge, Safari, etc.).
+## 📁 Project Structure
 
-(Optional) If you want to host online — you can deploy the single HTML file to any static-file hosting (GitHub Pages, Netlify, personal server, etc.).
+    Space-War/
+    └── game.html        # Entire game (HTML + CSS + JavaScript)
 
-Because the game is a single HTML file with embedded CSS and JS — there are no build steps, no external dependencies, and no asset management required.
+------------------------------------------------------------------------
 
-Project Structure
-/ (root)
-  └── game.html    ← Everything: HTML, CSS, JavaScript in one file
+## 🧠 How It Works
 
+-   Game loop built with `requestAnimationFrame()`
+-   Canvas-based rendering
+-   Object‑oriented system for entities (player, enemies, bullets)
+-   Procedural particle generator
+-   Dynamic difficulty scaling per wave
+-   Touch input detection for mobile
+-   Collision detection with circle‑based physics
 
-There are no additional directories, assets, or external dependencies.
+------------------------------------------------------------------------
 
-Contributing
+## 🌍 Deployment
 
-Contributions are welcome! Here are some ways you can help:
+Since it is a single HTML file, you can deploy it anywhere:
 
-Report bugs or submit feature requests by opening an issue.
+-   GitHub Pages\
+-   Netlify\
+-   Vercel\
+-   Any static hosting provider
 
-Submit pull requests for bug fixes, performance improvements, or new features (e.g. new enemy types, power-ups, UI enhancements, mobile controls improvement, etc.).
+Just upload `game.html`.
 
-Improve documentation or add a development roadmap.
+------------------------------------------------------------------------
 
-Optimize code structure (e.g. modularize JS, add comments, refactor).
+## 🤝 Contributing
 
-If the project grows significantly, consider adding:
+You are welcome to:
 
-a CONTRIBUTING.md file with contribution guidelines.
+-   Add new enemies\
+-   Improve particle systems\
+-   Enhance mobile controls\
+-   Add power-ups\
+-   Refactor game logic\
+-   Create new UI screens (menu, pause, upgrades)
 
-issue and pull-request templates.
+Feel free to open issues or submit pull requests.
 
-code comments.
+------------------------------------------------------------------------
 
-tests (if applicable).
+## 👨‍💻 Author
 
-a changelog.
+**Kirubel Mesfin**\
+Passionate developer building games and web applications.\
+GitHub: https://github.com/kirubelm1
 
-These practices follow general open-source documentation guidance. 
-fieldguide.opennews.org
-+1
+------------------------------------------------------------------------
 
-License
-
-(If you plan to release under a license — specify it here. If no license yet, consider adding one.)
-
-For example: MIT License — permissive and easy for others to reuse.
-
-Credits
-
-The main author / maintainer: kirubelm1 (as the GitHub repository owner). 
-GitHub
-
-Thanks to any contributors (if there are future PRs).
-
-(If you use any external code snippets or assets — list them here.)
-
-Future Ideas / Roadmap
-
-Here are some suggestions for where the project could evolve:
-
-Add save / high-score table (persist scores across sessions via localStorage).
-
-Add multiple levels / increasing difficulty (enemy waves, boss fights, progressive upgrades).
-
-Introduce power-ups (temporary shields, better weapons, speed boosts).
-
-Improve mobile UI/UX — better virtual controls, touch-friendly UI, responsive layout.
-
-Modularize code for easier maintenance (split CSS, JS, HTML; use a build tool or bundler).
-
-Add sound/music toggle, volume controls and more audio polish.
-
-Add a settings menu (fullscreen toggle, control settings, graphics options).
-
-Add documentation website or wiki if project expands.
+⭐ If you enjoyed this project, please give it a star on GitHub!
