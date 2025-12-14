@@ -52,11 +52,13 @@ let timeWarpActive = false;
 let timeWarpDuration = 0;
 
 // WEAPON SYSTEM
-const weapons = ['rapid', 'homing', 'laser'];
+const weapons = ['rapid', 'homing', 'laser', 'bomb', 'machinegun'];
 const weaponData = {
-    rapid: { damage: 25, speed: 8, cooldown: 8, color: '#00ff88', size: 4 },
-    homing: { damage: 40, speed: 6, cooldown: 20, color: '#ff8800', size: 6 },
-    laser: { damage: 60, speed: 12, cooldown: 15, color: '#ff00ff', size: 8, pierce: 5 }
+    rapid: { damage: 50, speed: 8, cooldown: 8, color: '#00ff88', size: 4 },
+    homing: { damage: 80, speed: 6, cooldown: 20, color: '#ff8800', size: 6 },
+    laser: { damage: 100, speed: 12, cooldown: 15, color: '#ff00ff', size: 8, pierce: 5 },
+    bomb: { damage: 150, speed: 4, cooldown: 60, color: '#ffff00', size: 10, explosive: true, radius: 80 },
+    machinegun: { damage: 35, speed: 10, cooldown: 3, color: '#ff4444', size: 3 }
 };
 
 // SKILL TREE SYSTEM
@@ -151,6 +153,7 @@ function getBullet(x, y, vx, vy, size, life, color, damage, isEnemy = false, typ
             bullet.isEnemy = isEnemy;
             bullet.type = type;
             bullet.pierce = pierce;
+            bullet.exploded = false;
             bullets.push(bullet);
             return bullet;
         }
@@ -306,6 +309,23 @@ function shootWeapon() {
                 Math.sin(angleToMouse) * weapon.speed,
                 weapon.size, 100, weapon.color, weapon.damage, false, 'laser',
                 weapon.pierce + getSkillLevel('bulletPierce')
+            );
+        } else if (weapons[currentWeapon] === 'bomb') {
+            // Explosive bombs
+            getBullet(
+                player.x, player.y,
+                Math.cos(angleToMouse) * weapon.speed,
+                Math.sin(angleToMouse) * weapon.speed,
+                weapon.size, 150, weapon.color, weapon.damage, false, 'bomb'
+            );
+        } else if (weapons[currentWeapon] === 'machinegun') {
+            // High-speed machine gun
+            getBullet(
+                player.x, player.y,
+                Math.cos(angleToMouse) * weapon.speed,
+                Math.sin(angleToMouse) * weapon.speed,
+                weapon.size, 100, weapon.color, weapon.damage, false, 'machinegun',
+                getSkillLevel('bulletPierce')
             );
         }
         
@@ -617,6 +637,8 @@ function update() {
     if (keys['1']) switchWeapon(0);
     if (keys['2']) switchWeapon(1);
     if (keys['3']) switchWeapon(2);
+    if (keys['4']) switchWeapon(3);
+    if (keys['5']) switchWeapon(4);
     
     // Update crosshair position
     ui.crosshair.style.left = (mouseX - 20) + 'px';
@@ -666,6 +688,48 @@ function update() {
         
         // Player bullet vs enemy collision
         if (!bullet.isEnemy) {
+            // Bomb explosion logic
+            if (bullet.type === 'bomb' && !bullet.exploded && bullet.life < 100) {
+                bullet.exploded = true;
+                const explosionRadius = weaponData.bomb.radius;
+                
+                // Damage all enemies in explosion radius
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    const dist = distance(bullet.x, bullet.y, enemy.x, enemy.y);
+                    if (dist < explosionRadius) {
+                        const critChance = getSkillLevel('critChance') * 0.05;
+                        const isCrit = Math.random() < critChance;
+                        const damage = isCrit ? bullet.damage * 2 : bullet.damage;
+                        
+                        enemy.health -= damage;
+                        spawnParticle(enemy.x, enemy.y, isCrit ? '#ffff00' : '#ff8800', 20, 4);
+                        
+                        if (enemy.health <= 0) {
+                            combo++;
+                            comboTimer = 120;
+                            let multiplier = Math.min(10, Math.floor(combo / 5) + 1);
+                            let scoreGain = 15 * multiplier * grazeBonus;
+                            if (feverMode) scoreGain *= 2;
+                            score += Math.floor(scoreGain);
+                            kills++;
+                            experience += 10;
+                            
+                            spawnParticle(enemy.x, enemy.y, '#ffffff', 15, 4);
+                            spawnLoot(enemy.x, enemy.y, enemy.type);
+                            enemies.splice(j, 1);
+                        }
+                    }
+                }
+                
+                // Create explosion effect
+                spawnParticle(bullet.x, bullet.y, '#ffff00', 30, 6, 8);
+                screenShake(20);
+                returnBullet(bullet);
+                continue;
+            }
+            
+            // Regular collision for other bullets
             for (let j = enemies.length - 1; j >= 0; j--) {
                 const enemy = enemies[j];
                 if (distance(bullet.x, bullet.y, enemy.x, enemy.y) < bullet.size + enemy.size) {
@@ -1012,6 +1076,22 @@ function draw() {
             ctx.beginPath();
             ctx.arc(bullet.x, bullet.y, bullet.size + 3, 0, Math.PI * 2);
             ctx.stroke();
+        } else if (bullet.type === 'bomb' && !bullet.isEnemy) {
+            // Pulsing bomb effect
+            const pulseSize = Math.sin(gameTime * 0.3) * 2 + bullet.size;
+            ctx.strokeStyle = bullet.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, pulseSize, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (bullet.type === 'machinegun' && !bullet.isEnemy) {
+            // Tracer effect for machine gun
+            ctx.strokeStyle = bullet.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(bullet.x - bullet.vx * 2, bullet.y - bullet.vy * 2);
+            ctx.lineTo(bullet.x, bullet.y);
+            ctx.stroke();
         }
     });
     
@@ -1152,7 +1232,7 @@ window.addEventListener('keydown', (e) => {
     keys[e.key.toLowerCase()] = true;
     
     // Prevent default for game keys
-    if (['w', 'a', 's', 'd', ' ', 'q', '1', '2', '3', 'escape'].includes(e.key.toLowerCase())) {
+    if (['w', 'a', 's', 'd', ' ', 'q', '1', '2', '3', '4', '5', 'escape'].includes(e.key.toLowerCase())) {
         e.preventDefault();
     }
     
