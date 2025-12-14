@@ -242,7 +242,7 @@ function purchaseSkill(skill, cost) {
         // Apply skill effects immediately
         applySkillEffects();
         
-        showAchievement(`🎯 ${skill.toUpperCase()} UPGRADED!`);
+        showAchievement(`${skill.toUpperCase()} UPGRADED!`);
         return true;
     }
     return false;
@@ -351,24 +351,24 @@ function spawnEnemy() {
 
 // LOOT SYSTEM
 function spawnLoot(x, y, enemyType) {
-    // Crystal drop chances
-    let crystalChance = 0.01; // 1% base
-    if (enemyType === 'elite') crystalChance = 0.15;
+    // Crystal drop chances - MUCH EASIER
+    let crystalChance = 0.15; // 15% base (was 1%)
+    if (enemyType === 'elite') crystalChance = 0.4;
     if (enemyType === 'boss') crystalChance = 1.0;
-    if (combo > 50) crystalChance += 0.01;
+    if (combo > 20) crystalChance += 0.05; // Lower combo requirement
     
     if (Math.random() < crystalChance) {
         let crystalType = 'common';
         let crystalValue = 1;
         let crystalColor = '#4488ff';
         
-        if (Math.random() < 0.1) { // 10% rare
+        if (Math.random() < 0.2) { // 20% rare (was 10%)
             crystalType = 'rare';
             crystalValue = 3;
             crystalColor = '#aa44ff';
         }
         
-        if (Math.random() < 0.01) { // 1% legendary
+        if (Math.random() < 0.05) { // 5% legendary (was 1%)
             crystalType = 'legendary';
             crystalValue = 10;
             crystalColor = '#ffd700';
@@ -386,7 +386,7 @@ function spawnLoot(x, y, enemyType) {
     }
     
     // Regular powerups
-    if (Math.random() < 0.3) {
+    if (Math.random() < 0.5) {
         const powerups = ['health', 'speed', 'damage', 'shield'];
         const powerup = powerups[Math.floor(Math.random() * powerups.length)];
         
@@ -412,9 +412,9 @@ function applyLoot(loot) {
         screenShake(5);
         
         if (loot.value >= 10) {
-            showAchievement('🔥 LEGENDARY CRYSTAL! +10💎');
+            showAchievement('LEGENDARY CRYSTAL! +10');
         } else if (loot.value >= 3) {
-            showAchievement('💎 RARE CRYSTAL! +3💎');
+            showAchievement('RARE CRYSTAL! +3');
         }
     } else {
         // Apply powerup effects
@@ -485,12 +485,12 @@ function gameOver() {
     
     if (score > highScore) {
         localStorage.setItem('spaceshooter_highscore', score.toString());
-        showAchievement('🏆 NEW HIGH SCORE!');
+        showAchievement('NEW HIGH SCORE!');
     }
     
     if (wave > highWave) {
         localStorage.setItem('spaceshooter_highwave', wave.toString());
-        showAchievement('🌊 NEW WAVE RECORD!');
+        showAchievement('NEW WAVE RECORD!');
     }
     
     // Update UI
@@ -560,7 +560,7 @@ function updateSkillTreeUI() {
         
         // Update cost for next level
         const nextLevelCost = cost + (currentLevel * Math.floor(cost * 0.5));
-        skillElement.querySelector('.skill-cost').textContent = `Cost: ${nextLevelCost}💎`;
+        skillElement.querySelector('.skill-cost').textContent = `Cost: ${nextLevelCost}`;
         skillElement.dataset.cost = nextLevelCost;
     });
 }
@@ -712,7 +712,7 @@ function update() {
                         if (combo >= 20 && !feverMode) {
                             feverMode = true;
                             feverTimer = 600; // 10 seconds
-                            showAchievement('🔥 FEVER MODE ACTIVATED!');
+                            showAchievement('FEVER MODE ACTIVATED!');
                             screenShake(15);
                         }
                         
@@ -740,7 +740,7 @@ function update() {
                         health = maxHealth * 0.5;
                         skillLevels.revive--;
                         localStorage.setItem('spaceshooter_skills', JSON.stringify(skillLevels));
-                        showAchievement('💀 REVIVED! Lives remaining: ' + getSkillLevel('revive'));
+                        showAchievement('REVIVED! Lives remaining: ' + getSkillLevel('revive'));
                         spawnParticle(player.x, player.y, '#00ff88', 30, 5);
                     } else {
                         gameOver();
@@ -857,7 +857,7 @@ function update() {
                         health = maxHealth * 0.5;
                         skillLevels.revive--;
                         localStorage.setItem('spaceshooter_skills', JSON.stringify(skillLevels));
-                        showAchievement('💀 REVIVED!');
+                        showAchievement('REVIVED!');
                     } else {
                         gameOver();
                         return;
@@ -932,7 +932,7 @@ function update() {
             if (wave % 5 === 0) {
                 const modifiers = ['bulletRain', 'speedBoost', 'ghostShips'];
                 const modifier = modifiers[Math.floor(Math.random() * modifiers.length)];
-                showAchievement(`🌀 CHAOS MODIFIER: ${modifier.toUpperCase()}`);
+                showAchievement(`CHAOS MODIFIER: ${modifier.toUpperCase()}`);
             }
         }
         
@@ -942,7 +942,7 @@ function update() {
             setTimeout(() => spawnEnemy(), i * 200);
         }
         
-        showAchievement(`🌊 WAVE ${wave}!`);
+        showAchievement(`WAVE ${wave}!`);
     }
     
     // Level up system
@@ -950,7 +950,7 @@ function update() {
         level++;
         experience -= experienceToNext;
         experienceToNext = Math.floor(experienceToNext * 1.2);
-        showAchievement(`⭐ LEVEL UP! Level ${level}`);
+        showAchievement(`LEVEL UP! Level ${level}`);
         
         // Restore some health on level up
         health = Math.min(maxHealth, health + 20);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚀 ULTIMATE SPACE SHOOTER PRO</title>
+    <title>ULTIMATE SPACE SHOOTER PRO</title>
     <link rel="stylesheet" href="game.css">
 </head>
 <body>
@@ -11,29 +11,29 @@
     
     <div id="ui">
         <div id="comboTracker">COMBO x<span id="comboMultiplier">1</span></div>
-        <div>🎯 Score: <span id="score">0</span></div>
-        <div>❤️ Health: <div id="healthBar"><div id="healthFill"></div></div></div>
-        <div>🌊 Wave: <span id="wave">1</span></div>
-        <div>💎 Crystals: <span id="crystalCount">0</span></div>
-        <div>🔥 Kills: <span id="kills">0</span></div>
-        <div>⭐ Level: <span id="level">1</span> (XP: <span id="experience">0</span>)</div>
-        <div id="grazeBonus">🌟 Graze: x<span id="grazeMultiplier">1.0</span></div>
+        <div>Score: <span id="score">0</span></div>
+        <div>Health: <div id="healthBar"><div id="healthFill"></div></div></div>
+        <div>Wave: <span id="wave">1</span></div>
+        <div>Crystals: <span id="crystalCount">0</span></div>
+        <div>Kills: <span id="kills">0</span></div>
+        <div>Level: <span id="level">1</span> (XP: <span id="experience">0</span>)</div>
+        <div id="grazeBonus">Graze: x<span id="grazeMultiplier">1.0</span></div>
     </div>
 
     <!-- WEAPON HOTBAR -->
     <div id="weaponHotbar">
         <div class="weapon-slot active" data-weapon="0">
-            <div class="weapon-icon">🔫</div>
+            <div class="weapon-icon">▲</div>
             <div class="weapon-name">RAPID</div>
             <div class="weapon-key">1</div>
         </div>
         <div class="weapon-slot" data-weapon="1">
-            <div class="weapon-icon">🚀</div>
+            <div class="weapon-icon">◆</div>
             <div class="weapon-name">HOMING</div>
             <div class="weapon-key">2</div>
         </div>
         <div class="weapon-slot" data-weapon="2">
-            <div class="weapon-icon">⚡</div>
+            <div class="weapon-icon">║</div>
             <div class="weapon-name">LASER</div>
             <div class="weapon-key">3</div>
         </div>
@@ -42,82 +42,82 @@
     <!-- SKILL TREE MODAL -->
     <div id="skillTreeModal" class="hidden">
         <div class="skill-tree-container">
-            <h2>💎 CRYSTAL SKILL TREE</h2>
+            <h2>CRYSTAL SKILL TREE</h2>
             <div class="crystal-balance">Crystals: <span id="skillCrystals">0</span></div>
             
             <div class="skill-categories">
                 <div class="skill-category">
-                    <h3>🏃 SPEED</h3>
+                    <h3>SPEED</h3>
                     <div class="skill" data-skill="dashRange" data-cost="2">
                         <div class="skill-name">Dash Range +25%</div>
-                        <div class="skill-cost">Cost: 2💎</div>
+                        <div class="skill-cost">Cost: 2</div>
                         <div class="skill-level">Level: <span>0</span>/5</div>
                     </div>
                     <div class="skill" data-skill="maxSpeed" data-cost="3">
                         <div class="skill-name">Max Speed +15%</div>
-                        <div class="skill-cost">Cost: 3💎</div>
+                        <div class="skill-cost">Cost: 3</div>
                         <div class="skill-level">Level: <span>0</span>/3</div>
                     </div>
                     <div class="skill" data-skill="airDash" data-cost="10">
                         <div class="skill-name">Air Dash</div>
-                        <div class="skill-cost">Cost: 10💎</div>
+                        <div class="skill-cost">Cost: 10</div>
                         <div class="skill-level">Level: <span>0</span>/1</div>
                     </div>
                 </div>
 
                 <div class="skill-category">
-                    <h3>💥 DAMAGE</h3>
+                    <h3>DAMAGE</h3>
                     <div class="skill" data-skill="critChance" data-cost="2">
                         <div class="skill-name">Crit Chance +5%</div>
-                        <div class="skill-cost">Cost: 2💎</div>
+                        <div class="skill-cost">Cost: 2</div>
                         <div class="skill-level">Level: <span>0</span>/6</div>
                     </div>
                     <div class="skill" data-skill="bulletPierce" data-cost="4">
                         <div class="skill-name">Bullet Pierce +1</div>
-                        <div class="skill-cost">Cost: 4💎</div>
+                        <div class="skill-cost">Cost: 4</div>
                         <div class="skill-level">Level: <span>0</span>/3</div>
                     </div>
                     <div class="skill" data-skill="tripleShot" data-cost="8">
                         <div class="skill-name">Triple Shot</div>
-                        <div class="skill-cost">Cost: 8💎</div>
+                        <div class="skill-cost">Cost: 8</div>
                         <div class="skill-level">Level: <span>0</span>/1</div>
                     </div>
                 </div>
 
                 <div class="skill-category">
-                    <h3>🛡️ SURVIVAL</h3>
+                    <h3>SURVIVAL</h3>
                     <div class="skill" data-skill="shieldCapacity" data-cost="3">
                         <div class="skill-name">Shield +25HP</div>
-                        <div class="skill-cost">Cost: 3💎</div>
+                        <div class="skill-cost">Cost: 3</div>
                         <div class="skill-level">Level: <span>0</span>/4</div>
                     </div>
                     <div class="skill" data-skill="revive" data-cost="15">
                         <div class="skill-name">Revive on Death</div>
-                        <div class="skill-cost">Cost: 15💎</div>
+                        <div class="skill-cost">Cost: 15</div>
                         <div class="skill-level">Level: <span>0</span>/3</div>
                     </div>
                     <div class="skill" data-skill="autoRepair" data-cost="6">
                         <div class="skill-name">Auto-Repair 1HP/s</div>
-                        <div class="skill-cost">Cost: 6💎</div>
+                        <div class="skill-cost">Cost: 6</div>
                         <div class="skill-level">Level: <span>0</span>/1</div>
                     </div>
                 </div>
 
                 <div class="skill-category">
-                    <h3>🎯 UTILITY</h3>
+                    <h3>UTILITY</h3>
                     <div class="skill" data-skill="magnetRange" data-cost="2">
                         <div class="skill-name">Magnet Range +50px</div>
-                        <div class="skill-cost">Cost: 2💎</div>
+                        <div class="skill-cost">Cost: 2</div>
                         <div class="skill-level">Level: <span>0</span>/5</div>
                     </div>
                     <div class="skill" data-skill="powerupMagnet" data-cost="5">
                         <div class="skill-name">Powerup Magnet</div>
-                        <div class="skill-cost">Cost: 5💎</div>
+                        <div class="skill-cost">Cost: 5</div>
                         <div class="skill-level">Level: <span>0</span>/1</div>
                     </div>
                     <div class="skill" data-skill="timeWarp" data-cost="7">
                         <div class="skill-name">Time Warp +1s</div>
-                        <div class="skill-cost">Cost: 7💎</div>
+                        <div class="skill-cost">Cost: 7</div>
                         <div class="skill-level">Level: <span>0</span>/3</div>
                     </div>
                 </div>
@@ -141,7 +141,7 @@
     <div id="crosshair"></div>
     
     <div id="startScreen">
-        <h1>🚀 ULTIMATE SPACE SHOOTER PRO</h1>
+        <h1>ULTIMATE SPACE SHOOTER PRO</h1>
         <p>The most addictive bullet-hell roguelite EVER!</p>
         
         <div class="controls">
@@ -167,9 +167,9 @@
             </div>
         </div>
         
-        <p>💎 Collect CRYSTALS for permanent upgrades!</p>
-        <p>🎯 Graze bullets for MASSIVE score multipliers!</p>
-        <p>🔥 Build combos and enter FEVER MODE!</p>
+        <p>Collect CRYSTALS for permanent upgrades!</p>
+        <p>Graze bullets for MASSIVE score multipliers!</p>
+        <p>Build combos and enter FEVER MODE!</p>
         <button id="startBtn">START MISSION</button>
     </div>
     
@@ -178,17 +178,17 @@
         <p>Final Score: <span id="finalScore">0</span></p>
         <p>Highest Wave: <span id="highestWave">1</span></p>
         <p>Total Kills: <span id="totalKills">0</span></p>
-        <p>💎 Crystals Earned: <span id="crystalsEarned">0</span></p>
+        <p>Crystals Earned: <span id="crystalsEarned">0</span></p>
         <button id="restartBtn">RETRY MISSION</button>
         <button id="openSkillTreeBtn">UPGRADE SKILLS</button>
     </div>
 
     <!-- MOBILE CONTROLS -->
     <div id="mobileControls">
-        <div class="mobile-btn" id="dashBtn">🚀</div>
-        <div class="mobile-btn" id="weaponSwapBtn">🔄</div>
-        <div class="mobile-btn" id="skillTreeBtn">💎</div>
-        <div class="mobile-btn" id="autoFireToggle">🔥</div>
+        <div class="mobile-btn" id="dashBtn">►</div>
+        <div class="mobile-btn" id="weaponSwapBtn">◄►</div>
+        <div class="mobile-btn" id="skillTreeBtn">◊</div>
+        <div class="mobile-btn" id="autoFireToggle">●</div>
     </div>
     
     <div class="joystick" id="joystick">
