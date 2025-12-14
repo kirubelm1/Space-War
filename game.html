@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter Pro</title>
+    <link rel="stylesheet" href="game.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <div id="comboTracker">COMBO x<span id="comboMultiplier">1</span></div>
+        <div>🎯 Score: <span id="score">0</span></div>
+        <div>❤️ Health: <div id="healthBar"><div id="healthFill"></div></div></div>
+        <div>🌊 Wave: <span id="wave">1</span></div>
+        <div>⚡ Power: <span id="powerLevel">1</span> <div id="abilityCooldownBar"><div id="abilityCooldownFill"></div></div></div>
+        <div>🔥 Kills: <span id="kills">0</span></div>
+        <div>⭐ Level: <span id="level">1</span> (XP: <span id="experience">0</span>)</div>
+        <div id="dashCooldown" style="display:none;">🚀 Dash: <span id="dashTimer">Ready</span></div>
+    </div>
+    
+    <div id="bossHealth">
+        <div id="bossHealthFill"></div>
+        <div id="bossLabel">BOSS</div>
+    </div>
+
+    <div id="damageIndicatorsContainer"></div>
+    <div id="cinematicOverlay"></div>
+    <div id="warpEffect"></div>
+    <div id="explosionContainer"></div>
+    <div id="achievementPopup" class="hidden"></div>
+    <div id="minimap"></div>
+    <div id="crosshair"></div>
+    
+    <div id="startScreen">
+        <h1>SPACE SHOOTER PRO</h1>
+        <p>Defend the galaxy from alien invasion!</p>
+        
+        <div class="controls">
+            <div class="control-item">
+                <div class="control-key">WASD</div>
+                <div>Move</div>
+            </div>
+            <div class="control-item">
+                <div class="control-key">MOUSE</div>
+                <div>Aim & Shoot</div>
+            </div>
+            <div class="control-item">
+                <div class="control-key">SPACE</div>
+                <div>Rapid Fire</div>
+            </div>
+        </div>
+        
+        <p>Collect power-ups for special abilities</p>
+        <p>Survive waves and defeat the boss!</p>
+        <button id="startBtn">START MISSION</button>
+    </div>
+    
+    <div id="gameOver" class="hidden">
+        <h2>MISSION FAILED</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <p>Highest Wave: <span id="highestWave">1</span></p>
+        <p>Total Kills: <span id="totalKills">0</span></p>
+        <button id="restartBtn">RETRY MISSION</button>
+    </div>
+
+    <div id="mobileControls">
+        <div class="mobile-btn" id="shootBtn">🔥</div>
+        <div class="mobile-btn" id="specialBtn">⚡</div>
+        <div class="mobile-btn" id="autoAimToggle">🎯</div>
+    </div>
+    
+    <div class="joystick" id="joystick">
+        <div class="joystick-base"></div>
+        <div class="joystick-handle" id="joystickHandle"></div>
+    </div>
+<script src="game.js"></script>
+</body>
+</html>
