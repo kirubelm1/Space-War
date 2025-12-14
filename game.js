@@ -1,1643 +1,1277 @@
- const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const ui = {
-            score: document.getElementById('score'),
-            healthFill: document.getElementById('healthFill'),
-            wave: document.getElementById('wave'),
-            powerLevel: document.getElementById('powerLevel'),
-            kills: document.getElementById('kills'),
-            startScreen: document.getElementById('startScreen'),
-            gameOver: document.getElementById('gameOver'),
-            finalScore: document.getElementById('finalScore'),
-            highestWave: document.getElementById('highestWave'),
-            totalKills: document.getElementById('totalKills'),
-            startBtn: document.getElementById('startBtn'),
-            restartBtn: document.getElementById('restartBtn'),
-            bossHealth: document.getElementById('bossHealth'),
-            bossHealthFill: document.getElementById('bossHealthFill'),
-            // New UI elements
-            comboTracker: document.getElementById('comboTracker'),
-            comboMultiplier: document.getElementById('comboMultiplier'),
-            abilityCooldownFill: document.getElementById('abilityCooldownFill'),
-            damageIndicatorsContainer: document.getElementById('damageIndicatorsContainer'),
-            autoAimToggle: document.getElementById('autoAimToggle'),
-            level: document.getElementById('level'),
-            experience: document.getElementById('experience'),
-            dashCooldown: document.getElementById('dashCooldown'),
-            dashTimer: document.getElementById('dashTimer')
-        };
+// 🚀 ULTIMATE SPACE SHOOTER PRO - The Most Addictive Bullet-Hell Roguelite Ever!
 
-        // Game variables
-        let gameRunning = false;
-        let score = 0;
-        let health = 100;
-        let maxHealth = 100;
-        let wave = 1;
-        let kills = 0;
-        let powerLevel = 1;
-        let enemySpawnTimer = 0;
-        let waveTimer = 0;
-        let bossActive = false;
-        let specialCooldown = 0;
-        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+// GAME STATE & CONFIGURATION
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-        // New Game Variables
-        let combo = 0;
-        let comboTimer = 0;
-        let screenShake = 0;
-        let invincible = 0;
-        let slowEnemies = 0;
-        let autoAim = isMobile; // Auto-aim is default for mobile
-        let dash = { active: false, cooldown: 0, distance: 150, duration: 10 };
-        let timeWarp = { active: false, duration: 0 };
-        let magnetField = { active: false, duration: 0 };
-        let criticalHit = { chance: 0.1, multiplier: 2 };
-        let experience = 0;
-        let playerLevel = 1;
-        let skillPoints = 0;
-        let achievements = [];
-        let gameTime = 0;
-        let doubleJump = { available: false, used: false };
-        let shield = { active: false, health: 0, maxHealth: 50 };
+// UI ELEMENTS
+const ui = {
+    startScreen: document.getElementById('startScreen'),
+    gameOver: document.getElementById('gameOver'),
+    startBtn: document.getElementById('startBtn'),
+    restartBtn: document.getElementById('restartBtn'),
+    openSkillTreeBtn: document.getElementById('openSkillTreeBtn'),
+    skillTreeModal: document.getElementById('skillTreeModal'),
+    closeSkillTree: document.getElementById('closeSkillTree'),
+    feverOverlay: document.getElementById('feverOverlay'),
+    weaponHotbar: document.getElementById('weaponHotbar'),
+    crosshair: document.getElementById('crosshair')
+};
+
+// GAME VARIABLES
+let gameRunning = false;
+let gameTime = 0;
+let score = 0;
+let wave = 1;
+let health = 100;
+let maxHealth = 100;
+let kills = 0;
+let level = 1;
+let experience = 0;
+let experienceToNext = 100;
+let invincible = 0;
+let shooting = false;
+let keys = {};
+let mouseX = 0;
+let mouseY = 0;
+
+// ENHANCED GAME MECHANICS
+let combo = 0;
+let comboTimer = 0;
+let grazeBonus = 1.0;
+let feverMode = false;
+let feverTimer = 0;
+let crystals = parseInt(localStorage.getItem('spaceshooter_crystals') || '0');
+let crystalsEarned = 0;
+let currentWeapon = 0;
+let dashCooldown = 0;
+let dashDistance = 150;
+let timeWarpActive = false;
+let timeWarpDuration = 0;
+
+// WEAPON SYSTEM
+const weapons = ['rapid', 'homing', 'laser'];
+const weaponData = {
+    rapid: { damage: 25, speed: 8, cooldown: 8, color: '#00ff88', size: 4 },
+    homing: { damage: 40, speed: 6, cooldown: 20, color: '#ff8800', size: 6 },
+    laser: { damage: 60, speed: 12, cooldown: 15, color: '#ff00ff', size: 8, pierce: 5 }
+};
+
+// SKILL TREE SYSTEM
+let skillLevels = JSON.parse(localStorage.getItem('spaceshooter_skills') || '{}');
+const skillData = {
+    dashRange: { maxLevel: 5, effect: 0.25 },
+    maxSpeed: { maxLevel: 3, effect: 0.15 },
+    airDash: { maxLevel: 1, effect: 1 },
+    critChance: { maxLevel: 6, effect: 0.05 },
+    bulletPierce: { maxLevel: 3, effect: 1 },
+    tripleShot: { maxLevel: 1, effect: 1 },
+    shieldCapacity: { maxLevel: 4, effect: 25 },
+    revive: { maxLevel: 3, effect: 1 },
+    autoRepair: { maxLevel: 1, effect: 1 },
+    magnetRange: { maxLevel: 5, effect: 50 },
+    powerupMagnet: { maxLevel: 1, effect: 1 },
+    timeWarp: { maxLevel: 3, effect: 1 }
+};
+
+// PLAYER OBJECT
+const player = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    size: 20,
+    hitboxSize: 5, // PRECISE HITBOX FOR SKILL-BASED DODGING
+    color: '#00ff88',
+    speed: 5,
+    shootCooldown: 0,
+    dashCooldown: 0
+};
+
+// OBJECT POOLS FOR PERFORMANCE
+const bulletPool = [];
+const particlePool = [];
+const enemyPool = [];
+let bullets = [];
+let particles = [];
+let enemies = [];
+let lootItems = [];
+let backgroundStars = [];
+
+// ENHANCED ENEMY TYPES
+const enemyTypes = {
+    basic: { health: 50, speed: 2, size: 15, color: '#ff4444', shootPattern: 'single' },
+    fast: { health: 30, speed: 4, size: 12, color: '#ffaa00', shootPattern: 'aimed' },
+    heavy: { health: 120, speed: 1, size: 25, color: '#aa44ff', shootPattern: 'spiral' },
+    elite: { health: 200, speed: 2.5, size: 20, color: '#ff00aa', shootPattern: 'burst' },
+    boss: { health: 1000, speed: 1.5, size: 40, color: '#ff0066', shootPattern: 'chaos' }
+};
+
+// INITIALIZE OBJECT POOLS
+function initPools() {
+    for (let i = 0; i < 2000; i++) {
+        bulletPool.push({
+            x: 0, y: 0, vx: 0, vy: 0, size: 4, life: 0, damage: 25,
+            color: '#00ff88', active: false, isEnemy: false, type: 'rapid', pierce: 0
+        });
+    }
+    
+    for (let i = 0; i < 500; i++) {
+        particlePool.push({
+            x: 0, y: 0, vx: 0, vy: 0, size: 2, life: 0,
+            color: '#ffffff', active: false
+        });
+    }
+
+    // Initialize background stars
+    for (let i = 0; i < 200; i++) {
+        backgroundStars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 2 + 1,
+            brightness: Math.random() * 0.8 + 0.2,
+            speed: Math.random() * 0.5 + 0.1
+        });
+    }
+}
+
+// OBJECT POOL MANAGEMENT
+function getBullet(x, y, vx, vy, size, life, color, damage, isEnemy = false, type = 'rapid', pierce = 0) {
+    for (let bullet of bulletPool) {
+        if (!bullet.active) {
+            bullet.x = x;
+            bullet.y = y;
+            bullet.vx = vx;
+            bullet.vy = vy;
+            bullet.size = size;
+            bullet.life = life;
+            bullet.color = color;
+            bullet.damage = damage;
+            bullet.active = true;
+            bullet.isEnemy = isEnemy;
+            bullet.type = type;
+            bullet.pierce = pierce;
+            bullets.push(bullet);
+            return bullet;
+        }
+    }
+}
+
+function returnBullet(bullet) {
+    bullet.active = false;
+    const index = bullets.indexOf(bullet);
+    if (index > -1) bullets.splice(index, 1);
+}
+
+function spawnParticle(x, y, color, count = 1, size = 2, speed = 3) {
+    for (let i = 0; i < count; i++) {
+        for (let particle of particlePool) {
+            if (!particle.active) {
+                particle.x = x + (Math.random() - 0.5) * 20;
+                particle.y = y + (Math.random() - 0.5) * 20;
+                particle.vx = (Math.random() - 0.5) * speed;
+                particle.vy = (Math.random() - 0.5) * speed;
+                particle.size = size + Math.random() * 2;
+                particle.life = 40 + Math.random() * 20;
+                particle.color = color;
+                particle.active = true;
+                particles.push(particle);
+                break;
+            }
+        }
+    }
+}
+
+function returnParticle(particle) {
+    particle.active = false;
+    const index = particles.indexOf(particle);
+    if (index > -1) particles.splice(index, 1);
+}
+
+// UTILITY FUNCTIONS
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+function angle(x1, y1, x2, y2) {
+    return Math.atan2(y2 - y1, x2 - x1);
+}
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+// SCREEN SHAKE EFFECT
+function screenShake(intensity = 10) {
+    document.body.classList.add('shake');
+    setTimeout(() => document.body.classList.remove('shake'), 100);
+}
+
+// ACHIEVEMENT SYSTEM
+function showAchievement(text) {
+    const popup = document.getElementById('achievementPopup');
+    popup.textContent = text;
+    popup.classList.remove('hidden');
+    popup.classList.add('show');
+    setTimeout(() => {
+        popup.classList.remove('show');
+        setTimeout(() => popup.classList.add('hidden'), 500);
+    }, 3000);
+}
+
+// SKILL TREE FUNCTIONS
+function getSkillLevel(skill) {
+    return skillLevels[skill] || 0;
+}
+
+function canPurchaseSkill(skill, cost) {
+    const currentLevel = getSkillLevel(skill);
+    const maxLevel = skillData[skill].maxLevel;
+    return crystals >= cost && currentLevel < maxLevel;
+}
+
+function purchaseSkill(skill, cost) {
+    if (canPurchaseSkill(skill, cost)) {
+        crystals -= cost;
+        skillLevels[skill] = (skillLevels[skill] || 0) + 1;
+        localStorage.setItem('spaceshooter_crystals', crystals.toString());
+        localStorage.setItem('spaceshooter_skills', JSON.stringify(skillLevels));
+        updateSkillTreeUI();
+        updateUI();
         
-        // Object Pooling variables (Performance Improvement)
-        const BULLET_POOL_SIZE = 500;
-        let bulletPool = [];
-        const PARTICLE_POOL_SIZE = 1000;
-        let particlePool = [];
+        // Apply skill effects immediately
+        applySkillEffects();
         
-        // Game objects
-        let player = {};
-        let bullets = [];
-        let enemies = [];
-        let particles = [];
-        let powerups = [];
-        let effects = [];
-        let boss = null;
-        let backgroundStars = [];
+        showAchievement(`🎯 ${skill.toUpperCase()} UPGRADED!`);
+        return true;
+    }
+    return false;
+}
+
+function applySkillEffects() {
+    // Update player stats based on skills
+    player.speed = 5 + (getSkillLevel('maxSpeed') * skillData.maxSpeed.effect);
+    dashDistance = 150 + (getSkillLevel('dashRange') * skillData.dashRange.effect * 150);
+    maxHealth = 100 + (getSkillLevel('shieldCapacity') * skillData.shieldCapacity.effect);
+    
+    if (health > maxHealth) health = maxHealth;
+}
+
+// WEAPON SYSTEM
+function switchWeapon(weaponIndex) {
+    if (weaponIndex >= 0 && weaponIndex < weapons.length) {
+        currentWeapon = weaponIndex;
+        updateWeaponUI();
+    }
+}
+
+function updateWeaponUI() {
+    document.querySelectorAll('.weapon-slot').forEach((slot, index) => {
+        slot.classList.toggle('active', index === currentWeapon);
+    });
+}
+
+function shootWeapon() {
+    const weapon = weaponData[weapons[currentWeapon]];
+    if (player.shootCooldown <= 0) {
+        const angleToMouse = angle(player.x, player.y, mouseX, mouseY);
         
-        // New Game Object Arrays
-        let backgroundAsteroids = [];
-        let damageIndicators = [];
-
-
-        // Input
-        let keys = {};
-        let mouseX = 0;
-        let mouseY = 0;
-        let shooting = false;
-        let specialActive = false;
-        let joystickActive = false;
-        let joystickX = 0;
-        let joystickY = 0;
-
-        // Resize canvas
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            initBackgroundStars();
-            initBackgroundAsteroids(); // Initialize Asteroids on resize
-        }
-        
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-
-        // Initialize background stars (UPDATED for parallax)
-        function initBackgroundStars() {
-            backgroundStars = [];
-            // Layer 1: Slow, small, many (Original stars)
-            for (let i = 0; i < 200; i++) {
-                backgroundStars.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: Math.random() * 1.5 + 0.5, // Smaller
-                    speed: Math.random() * 0.3 + 0.1, // Slower
-                    brightness: Math.random() * 0.4 + 0.1
-                });
-            }
-            // Layer 2: Faster, larger, fewer (Parallax effect)
-            for (let i = 0; i < 50; i++) {
-                backgroundStars.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: Math.random() * 2.5 + 1, // Larger
-                    speed: Math.random() * 1.0 + 0.5, // Faster
-                    brightness: Math.random() * 0.8 + 0.5
-                });
-            }
-        }
-        
-        // Initialize background asteroids (NEW)
-        function initBackgroundAsteroids() {
-            backgroundAsteroids = [];
-            for (let i = 0; i < 10; i++) {
-                backgroundAsteroids.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: random(20, 50),
-                    speed: random(0.5, 1.5),
-                    rotation: random(0, Math.PI * 2),
-                    rotationSpeed: random(-0.01, 0.01)
-                });
-            }
-        }
-
-        // Utility functions
-        function random(min, max) {
-            return Math.random() * (max - min) + min;
-        }
-
-        function distance(x1, y1, x2, y2) {
-            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        }
-
-        function angle(x1, y1, x2, y2) {
-            return Math.atan2(y2 - y1, x2 - x1);
-        }
-
-        // Create notification
-        function createNotification(text, color = '#00ff88') {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.textContent = text;
-            notification.style.color = color;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 2000);
-        }
-
-        // Create on-screen damage indicator (NEW UI Element)
-        function createDamageIndicator(x, y, amount, color = '#ff4444') {
-            const indicator = document.createElement('div');
-            indicator.className = 'damage-indicator';
-            indicator.textContent = amount;
-            indicator.style.color = color;
-            indicator.style.left = x + 'px';
-            indicator.style.top = y + 'px';
-            ui.damageIndicatorsContainer.appendChild(indicator);
-            
-            // Remove the DOM element after the animation finishes
-            setTimeout(() => {
-                indicator.remove();
-            }, 1000); // Animation duration is 1s
-        }
-
-        // --- Object Pooling Functions (Performance Improvement) ---
-
-        function initPools() {
-            // Bullet Pool
-            bulletPool.length = 0; // Clear pool
-            for (let i = 0; i < BULLET_POOL_SIZE; i++) {
-                bulletPool.push({ active: false, trail: [] });
-            }
-            // Particle Pool
-            particlePool.length = 0; // Clear pool
-            for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
-                particlePool.push({ active: false });
-            }
-        }
-
-        function getBullet(x, y, vx, vy, size, life, color, damage, isEnemy = false, type = 'normal', homingTarget = null) {
-            for (let i = 0; i < bulletPool.length; i++) {
-                const bullet = bulletPool[i];
-                if (!bullet.active) {
-                    Object.assign(bullet, {
-                        active: true, x, y, vx, vy, size, life, color, damage, isEnemy, type, homingTarget
-                    });
-                    bullet.trail.length = 0;
-                    bullets.push(bullet);
-                    return bullet;
-                }
-            }
-            return null; // Pool exhausted
-        }
-
-        function returnBullet(bullet) {
-            bullet.active = false;
-            bullet.trail.length = 0;
-            // Remove from the active bullets array
-            const index = bullets.indexOf(bullet);
-            if (index > -1) {
-                bullets.splice(index, 1);
-            }
-        }
-        
-        function getParticle(x, y, vx, vy, life, color, size) {
-            for (let i = 0; i < particlePool.length; i++) {
-                const particle = particlePool[i];
-                if (!particle.active) {
-                    Object.assign(particle, {
-                        active: true, x, y, vx, vy, life, color, size
-                    });
-                    particles.push(particle);
-                    return particle;
-                }
-            }
-            return null; // Pool exhausted
-        }
-
-        function returnParticle(particle) {
-            particle.active = false;
-            // Remove from the active particles array
-            const index = particles.indexOf(particle);
-            if (index > -1) {
-                particles.splice(index, 1);
-            }
-        }
-
-        // Spawn particle (UPDATED to use pooling)
-        function spawnParticle(x, y, color, count = 8, size = 3) {
-            for(let i = 0; i < count; i++) {
-                getParticle(
-                    x, y, 
-                    random(-8, 8), random(-8, 8), // vx, vy
-                    40, color, 
-                    random(size * 0.5, size * 1.5) // size
+        if (weapons[currentWeapon] === 'rapid') {
+            // Rapid fire with potential triple shot
+            const shots = getSkillLevel('tripleShot') > 0 ? 3 : 1;
+            for (let i = 0; i < shots; i++) {
+                const spreadAngle = shots > 1 ? (i - 1) * 0.3 : 0;
+                const finalAngle = angleToMouse + spreadAngle;
+                getBullet(
+                    player.x, player.y,
+                    Math.cos(finalAngle) * weapon.speed,
+                    Math.sin(finalAngle) * weapon.speed,
+                    weapon.size, 120, weapon.color, weapon.damage, false, 'rapid',
+                    getSkillLevel('bulletPierce')
                 );
             }
+        } else if (weapons[currentWeapon] === 'homing') {
+            // Homing missiles
+            getBullet(
+                player.x, player.y,
+                Math.cos(angleToMouse) * weapon.speed,
+                Math.sin(angleToMouse) * weapon.speed,
+                weapon.size, 180, weapon.color, weapon.damage, false, 'homing'
+            );
+        } else if (weapons[currentWeapon] === 'laser') {
+            // Piercing laser
+            getBullet(
+                player.x, player.y,
+                Math.cos(angleToMouse) * weapon.speed,
+                Math.sin(angleToMouse) * weapon.speed,
+                weapon.size, 100, weapon.color, weapon.damage, false, 'laser',
+                weapon.pierce + getSkillLevel('bulletPierce')
+            );
         }
         
-        // Initialize game (UPDATED)
-        function initGame() {
-            score = 0;
-            health = maxHealth;
-            wave = 1;
-            kills = 0;
-            powerLevel = 1;
-            enemySpawnTimer = 0;
-            waveTimer = 0;
-            bossActive = false;
-            
-            // New Variable Resets
-            combo = 0;
-            comboTimer = 0;
-            screenShake = 0;
-            invincible = 0;
-            slowEnemies = 0;
-            
-            // Clear all object arrays and re-initialize pools
-            bullets.length = 0;
-            enemies.length = 0;
-            particles.length = 0;
-            powerups.length = 0;
-            effects.length = 0;
-            damageIndicators.length = 0;
-            boss = null;
-            
-            initPools(); // Initialize/Reset Pools (Performance Improvement)
-            initBackgroundAsteroids(); // Initialize Asteroids (Visual Upgrade)
-            
-            player = {
-                x: canvas.width / 2,
-                y: canvas.height / 2,
-                size: 20,
-                speed: 6,
-                shootCooldown: 0,
-                color: '#00ff88',
-                trail: [],
-                weaponType: 'normal' // New property (Gameplay Feature: New Weapons)
-            };
-            
-            ui.bossHealth.style.display = 'none';
-            updateUI();
+        player.shootCooldown = weapon.cooldown;
+        spawnParticle(player.x, player.y, weapon.color, 3, 1, 2);
+    }
+}
+
+// ENEMY SPAWNING
+function spawnEnemy() {
+    const side = Math.floor(Math.random() * 4);
+    let x, y;
+    
+    switch (side) {
+        case 0: x = Math.random() * canvas.width; y = -50; break;
+        case 1: x = canvas.width + 50; y = Math.random() * canvas.height; break;
+        case 2: x = Math.random() * canvas.width; y = canvas.height + 50; break;
+        case 3: x = -50; y = Math.random() * canvas.height; break;
+    }
+    
+    // Determine enemy type based on wave
+    let type = 'basic';
+    if (wave >= 20) type = Math.random() < 0.3 ? 'elite' : (Math.random() < 0.5 ? 'heavy' : 'fast');
+    else if (wave >= 10) type = Math.random() < 0.4 ? 'heavy' : (Math.random() < 0.6 ? 'fast' : 'basic');
+    else if (wave >= 5) type = Math.random() < 0.3 ? 'fast' : 'basic';
+    
+    const enemyData = enemyTypes[type];
+    const enemy = {
+        x, y,
+        type,
+        health: enemyData.health + (wave * 10),
+        maxHealth: enemyData.health + (wave * 10),
+        speed: enemyData.speed + (wave * 0.1),
+        size: enemyData.size,
+        color: enemyData.color,
+        shootPattern: enemyData.shootPattern,
+        shootCooldown: 0,
+        angle: 0
+    };
+    
+    enemies.push(enemy);
+}
+
+// LOOT SYSTEM
+function spawnLoot(x, y, enemyType) {
+    // Crystal drop chances
+    let crystalChance = 0.01; // 1% base
+    if (enemyType === 'elite') crystalChance = 0.15;
+    if (enemyType === 'boss') crystalChance = 1.0;
+    if (combo > 50) crystalChance += 0.01;
+    
+    if (Math.random() < crystalChance) {
+        let crystalType = 'common';
+        let crystalValue = 1;
+        let crystalColor = '#4488ff';
+        
+        if (Math.random() < 0.1) { // 10% rare
+            crystalType = 'rare';
+            crystalValue = 3;
+            crystalColor = '#aa44ff';
         }
-
-        // Start game
-        function startGame() {
-            gameRunning = true;
-            ui.startScreen.classList.add('hidden');
-            ui.gameOver.classList.add('hidden');
-            initGame();
-            createNotification('WAVE ' + wave, '#00ff88');
-            gameLoop();
+        
+        if (Math.random() < 0.01) { // 1% legendary
+            crystalType = 'legendary';
+            crystalValue = 10;
+            crystalColor = '#ffd700';
         }
+        
+        lootItems.push({
+            x, y,
+            type: 'crystal',
+            value: crystalValue,
+            color: crystalColor,
+            size: 8,
+            life: 600,
+            pulse: 0
+        });
+    }
+    
+    // Regular powerups
+    if (Math.random() < 0.3) {
+        const powerups = ['health', 'speed', 'damage', 'shield'];
+        const powerup = powerups[Math.floor(Math.random() * powerups.length)];
+        
+        lootItems.push({
+            x, y,
+            type: powerup,
+            color: powerup === 'health' ? '#ff4444' : powerup === 'speed' ? '#44ff44' : 
+                   powerup === 'damage' ? '#ffaa00' : '#4444ff',
+            size: 6,
+            life: 300,
+            pulse: 0
+        });
+    }
+}
 
-        // Game over
-        function gameOver() {
-            gameRunning = false;
-            ui.finalScore.textContent = score;
-            ui.highestWave.textContent = wave;
-            ui.totalKills.textContent = kills;
-            ui.gameOver.classList.remove('hidden');
+function applyLoot(loot) {
+    if (loot.type === 'crystal') {
+        crystals += loot.value;
+        crystalsEarned += loot.value;
+        localStorage.setItem('spaceshooter_crystals', crystals.toString());
+        
+        spawnParticle(loot.x, loot.y, loot.color, 15, 3, 5);
+        screenShake(5);
+        
+        if (loot.value >= 10) {
+            showAchievement('🔥 LEGENDARY CRYSTAL! +10💎');
+        } else if (loot.value >= 3) {
+            showAchievement('💎 RARE CRYSTAL! +3💎');
         }
-
-        // Update UI (UPDATED)
-        function updateUI() {
-            ui.score.textContent = score;
-            ui.healthFill.style.width = (health / maxHealth * 100) + '%';
-            ui.wave.textContent = wave;
-            ui.powerLevel.textContent = powerLevel;
-            ui.kills.textContent = kills;
-            ui.level.textContent = playerLevel;
-            ui.experience.textContent = experience;
-            
-            // Combo/Multiplier UI (UI Element)
-            if (combo > 0) {
-                ui.comboTracker.style.display = 'block';
-                ui.comboMultiplier.textContent = Math.min(5, Math.floor(combo / 5) + 1);
-            } else {
-                ui.comboTracker.style.display = 'none';
-            }
+    } else {
+        // Apply powerup effects
+        switch (loot.type) {
+            case 'health':
+                health = Math.min(maxHealth, health + 30);
+                break;
+            case 'speed':
+                player.speed += 0.5;
+                setTimeout(() => player.speed -= 0.5, 10000);
+                break;
+            case 'damage':
+                // Temporary damage boost
+                break;
+            case 'shield':
+                health = Math.min(maxHealth, health + 50);
+                break;
         }
+        spawnParticle(loot.x, loot.y, loot.color, 8, 2, 3);
+    }
+}
 
-        // Spawn enemy (UPDATED with new types and better scaling)
-        function spawnEnemy() {
-            const side = Math.floor(Math.random() * 4);
-            let x, y;
-            
-            switch(side) {
-                case 0: x = random(-50, canvas.width); y = -50; break;
-                case 1: x = canvas.width + 50; y = random(-50, canvas.height); break;
-                case 2: x = random(-50, canvas.width); y = canvas.height + 50; break;
-                case 3: x = -50; y = random(-50, canvas.height); break;
-            }
-            
-            // Dynamic enemy selection based on wave (Better wave progression logic)
-            const enemyPool = ['normal', 'normal', 'fast'];
-            if (wave >= 3) enemyPool.push('tank');
-            if (wave >= 5) enemyPool.push('shooter');
-            if (wave >= 8) enemyPool.push('homing'); // New Homing Enemy
-            if (wave >= 10) enemyPool.push('mine'); // New Mine Enemy
+// GAME INITIALIZATION
+function startGame() {
+    gameRunning = true;
+    gameTime = 0;
+    score = 0;
+    wave = 1;
+    health = maxHealth;
+    kills = 0;
+    level = 1;
+    experience = 0;
+    combo = 0;
+    comboTimer = 0;
+    grazeBonus = 1.0;
+    feverMode = false;
+    feverTimer = 0;
+    crystalsEarned = 0;
+    invincible = 0;
+    
+    player.x = canvas.width / 2;
+    player.y = canvas.height / 2;
+    player.shootCooldown = 0;
+    
+    bullets = [];
+    particles = [];
+    enemies = [];
+    lootItems = [];
+    
+    // Apply skill effects
+    applySkillEffects();
+    
+    ui.startScreen.classList.add('hidden');
+    ui.gameOver.classList.add('hidden');
+    ui.feverOverlay.classList.add('hidden');
+    
+    updateUI();
+    updateWeaponUI();
+    gameLoop();
+}
 
-            const type = enemyPool[Math.floor(Math.random() * enemyPool.length)];
-            
-            let speed = 0, size = 0, health = 0, color = '';
-            let healthScale = Math.floor(wave / 5) * 0.5 + 1; // Scale health every 5 waves
-            
-            switch(type) {
-                case 'normal': speed = 2 + wave * 0.1; size = 15; health = 1 * healthScale; color = '#ff4444'; break;
-                case 'fast': speed = 4 + wave * 0.1; size = 10; health = 1 * healthScale; color = '#ffaa00'; break;
-                case 'tank': speed = 1 + wave * 0.05; size = 25; health = 3 * healthScale; color = '#aa44ff'; break;
-                case 'shooter': speed = 1.5 + wave * 0.08; size = 18; health = 2 * healthScale; color = '#00aaff'; break;
-                case 'homing': speed = 2.5 + wave * 0.1; size = 16; health = 1.5 * healthScale; color = '#ff00ff'; break; // New
-                case 'mine': speed = 0.5; size = 30; health = 4 * healthScale; color = '#555555'; break; // New
-            }
-            
-            enemies.push({
-                x: x,
-                y: y,
-                size: size,
-                speed: speed,
-                health: health,
-                maxHealth: health,
-                color: color,
-                type: type,
-                shootCooldown: type === 'shooter' ? 60 : 0,
-                mineTimer: type === 'mine' ? 180 : 0, // 3 seconds till detonation (New Mine Enemy)
-                trail: []
-            });
+function gameOver() {
+    gameRunning = false;
+    
+    // Save high scores
+    const highScore = parseInt(localStorage.getItem('spaceshooter_highscore') || '0');
+    const highWave = parseInt(localStorage.getItem('spaceshooter_highwave') || '1');
+    
+    if (score > highScore) {
+        localStorage.setItem('spaceshooter_highscore', score.toString());
+        showAchievement('🏆 NEW HIGH SCORE!');
+    }
+    
+    if (wave > highWave) {
+        localStorage.setItem('spaceshooter_highwave', wave.toString());
+        showAchievement('🌊 NEW WAVE RECORD!');
+    }
+    
+    // Update UI
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('highestWave').textContent = wave;
+    document.getElementById('totalKills').textContent = kills;
+    document.getElementById('crystalsEarned').textContent = crystalsEarned;
+    
+    ui.gameOver.classList.remove('hidden');
+    ui.feverOverlay.classList.add('hidden');
+}
+
+// UI UPDATE FUNCTIONS
+function updateUI() {
+    document.getElementById('score').textContent = score;
+    document.getElementById('wave').textContent = wave;
+    document.getElementById('kills').textContent = kills;
+    document.getElementById('level').textContent = level;
+    document.getElementById('experience').textContent = experience;
+    document.getElementById('crystalCount').textContent = crystals;
+    document.getElementById('skillCrystals').textContent = crystals;
+    
+    // Health bar
+    const healthPercent = (health / maxHealth) * 100;
+    document.getElementById('healthFill').style.width = healthPercent + '%';
+    
+    // Combo tracker
+    const comboTracker = document.getElementById('comboTracker');
+    if (combo > 5) {
+        comboTracker.style.display = 'block';
+        document.getElementById('comboMultiplier').textContent = Math.floor(combo / 5) + 1;
+    } else {
+        comboTracker.style.display = 'none';
+    }
+    
+    // Graze bonus
+    document.getElementById('grazeMultiplier').textContent = grazeBonus.toFixed(1);
+    
+    // Fever mode
+    if (feverMode && !ui.feverOverlay.classList.contains('show')) {
+        ui.feverOverlay.classList.remove('hidden');
+        ui.feverOverlay.classList.add('show');
+    } else if (!feverMode && ui.feverOverlay.classList.contains('show')) {
+        ui.feverOverlay.classList.remove('show');
+        setTimeout(() => ui.feverOverlay.classList.add('hidden'), 500);
+    }
+}
+
+function updateSkillTreeUI() {
+    document.querySelectorAll('.skill').forEach(skillElement => {
+        const skillName = skillElement.dataset.skill;
+        const currentLevel = getSkillLevel(skillName);
+        const maxLevel = skillData[skillName].maxLevel;
+        const cost = parseInt(skillElement.dataset.cost);
+        
+        skillElement.querySelector('.skill-level span').textContent = currentLevel;
+        
+        if (currentLevel >= maxLevel) {
+            skillElement.classList.add('max-level');
+            skillElement.classList.remove('purchased');
+        } else if (currentLevel > 0) {
+            skillElement.classList.add('purchased');
+            skillElement.classList.remove('max-level');
+        } else {
+            skillElement.classList.remove('purchased', 'max-level');
         }
+        
+        // Update cost for next level
+        const nextLevelCost = cost + (currentLevel * Math.floor(cost * 0.5));
+        skillElement.querySelector('.skill-cost').textContent = `Cost: ${nextLevelCost}💎`;
+        skillElement.dataset.cost = nextLevelCost;
+    });
+}
 
-        // Spawn boss (UPDATED with new properties for patterns)
-        function spawnBoss() {
-            bossActive = true;
-            ui.bossHealth.style.display = 'block';
-            
-            boss = {
-                x: canvas.width / 2,
-                y: -100,
-                size: 80,
-                speed: 1,
-                health: 100 + wave * 30, // Increased boss health scaling
-                maxHealth: 100 + wave * 30,
-                color: '#ff0066',
-                phase: 1, // New phase tracking (New Boss Patterns)
-                shootCooldown: 0,
-                patternCooldown: 0,
-                laserActive: false, // New laser tracking
-                laserTimer: 0,
-                trail: []
-            };
-            
-            createNotification('BOSS INCOMING: WAVE ' + wave, '#ff0066');
+// MAIN UPDATE FUNCTION
+function update() {
+    gameTime++;
+    
+    // Update background stars
+    backgroundStars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > canvas.height) {
+            star.y = -10;
+            star.x = Math.random() * canvas.width;
         }
-
-        // Spawn powerup (UPDATED with new types)
-        function spawnPowerup(x, y) {
-            const types = ['health', 'power', 'shield', 'speed', 'multishot', 'invincibility', 'freeze', 'laser', 'homing_missile', 'magnet', 'double_damage'];
-            const type = types[Math.floor(Math.random() * types.length)];
+    });
+    
+    // Player movement with enhanced controls
+    let moveX = 0, moveY = 0;
+    if (keys['a'] || keys['arrowleft']) moveX -= 1;
+    if (keys['d'] || keys['arrowright']) moveX += 1;
+    if (keys['w'] || keys['arrowup']) moveY -= 1;
+    if (keys['s'] || keys['arrowdown']) moveY += 1;
+    
+    // Normalize diagonal movement
+    if (moveX !== 0 && moveY !== 0) {
+        moveX *= 0.707;
+        moveY *= 0.707;
+    }
+    
+    player.x = clamp(player.x + moveX * player.speed, player.size, canvas.width - player.size);
+    player.y = clamp(player.y + moveY * player.speed, player.size, canvas.height - player.size);
+    
+    // Dash ability
+    if (keys['q'] && dashCooldown <= 0) {
+        const dashAngle = angle(player.x, player.y, mouseX, mouseY);
+        player.x = clamp(player.x + Math.cos(dashAngle) * dashDistance, player.size, canvas.width - player.size);
+        player.y = clamp(player.y + Math.sin(dashAngle) * dashDistance, player.size, canvas.height - player.size);
+        dashCooldown = 120;
+        spawnParticle(player.x, player.y, '#00ffff', 20, 3, 8);
+        screenShake(3);
+    }
+    
+    if (dashCooldown > 0) dashCooldown--;
+    if (player.shootCooldown > 0) player.shootCooldown--;
+    if (invincible > 0) invincible--;
+    
+    // Shooting
+    if (shooting || keys[' ']) {
+        shootWeapon();
+    }
+    
+    // Weapon switching
+    if (keys['1']) switchWeapon(0);
+    if (keys['2']) switchWeapon(1);
+    if (keys['3']) switchWeapon(2);
+    
+    // Update crosshair position
+    ui.crosshair.style.left = (mouseX - 20) + 'px';
+    ui.crosshair.style.top = (mouseY - 20) + 'px';
+    
+    // Update bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        if (!bullet.active) continue;
+        
+        // Homing behavior
+        if (bullet.type === 'homing' && !bullet.isEnemy) {
+            let nearestEnemy = null;
+            let nearestDist = Infinity;
             
-            let color;
-            switch(type) {
-                case 'health': color = '#ff4444'; break;
-                case 'power': color = '#00ff88'; break;
-                case 'shield': color = '#0088ff'; break;
-                case 'speed': color = '#ffaa00'; break;
-                case 'multishot': color = '#aa00ff'; break;
-                case 'invincibility': color = '#ffcc00'; break;
-                case 'freeze': color = '#00ccff'; break;
-                case 'laser': color = '#ff00ff'; break;
-                case 'homing_missile': color = '#ffaa00'; break;
-                case 'magnet': color = '#ff8800'; break;
-                case 'double_damage': color = '#ff0088'; break;
-            }
-            
-            powerups.push({
-                x: x,
-                y: y,
-                size: 15,
-                type: type,
-                color: color,
-                life: 600
-            });
-        }
-
-        // Create effect
-        function createEffect(x, y, type, duration = 30) {
-            effects.push({
-                x: x,
-                y: y,
-                type: type,
-                life: duration,
-                size: 20
-            });
-        }
-
-        // Update game (UPDATED with all logic)
-        function update() {
-            if (!gameRunning) return;
-
-            // --- Screen Shake (Visual Upgrade) ---
-            if (screenShake > 0) {
-                canvas.classList.add('shake');
-                screenShake--;
-            } else {
-                canvas.classList.remove('shake');
-            }
-
-            // --- Update Status Timers (Gameplay/Power-ups) ---
-            if (invincible > 0) {
-                invincible--;
-                player.color = invincible % 10 < 5 ? '#ffcc00' : '#00ff88'; // Flashing effect
-            } else {
-                player.color = '#00ff88';
-            }
-            if (slowEnemies > 0) slowEnemies--;
-            
-            // Dash ability update
-            if (dash.cooldown > 0) {
-                dash.cooldown--;
-                ui.dashTimer.textContent = Math.ceil(dash.cooldown / 60) + 's';
-            } else {
-                ui.dashTimer.textContent = 'Ready';
-                if (powerLevel >= 2) ui.dashCooldown.style.display = 'block';
-            }
-            
-            // Time warp ability update
-            if (timeWarp.duration > 0) {
-                timeWarp.duration--;
-                timeWarp.active = true;
-            } else {
-                timeWarp.active = false;
-            }
-            
-            // Magnet field update
-            if (magnetField.duration > 0) {
-                magnetField.duration--;
-                magnetField.active = true;
-                // Pull powerups towards player
-                powerups.forEach(powerup => {
-                    const dx = player.x - powerup.x;
-                    const dy = player.y - powerup.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 200) {
-                        powerup.x += (dx / dist) * 3;
-                        powerup.y += (dy / dist) * 3;
-                    }
-                });
-            } else {
-                magnetField.active = false;
-            }
-            
-            // Combo / Multiplier Tracker (UI Element)
-            if (comboTimer > 0) comboTimer--; else combo = 0;
-            
-            // Experience and leveling system
-            gameTime++;
-            const xpNeeded = playerLevel * 100;
-            if (experience >= xpNeeded) {
-                experience -= xpNeeded;
-                playerLevel++;
-                maxHealth += 10;
-                health = maxHealth;
-                criticalHit.chance = Math.min(0.3, 0.1 + playerLevel * 0.02);
-                createNotification('LEVEL UP! +10 MAX HEALTH', '#ffff00');
-            }
-
-            // --- Update Background (Visual Upgrade: Parallax & Asteroids) ---
-            backgroundStars.forEach(star => {
-                star.y += star.speed;
-                if (star.y > canvas.height) {
-                    star.y = 0;
-                    star.x = Math.random() * canvas.width;
+            enemies.forEach(enemy => {
+                const dist = distance(bullet.x, bullet.y, enemy.x, enemy.y);
+                if (dist < nearestDist && dist < 200) {
+                    nearestDist = dist;
+                    nearestEnemy = enemy;
                 }
             });
             
-            backgroundAsteroids.forEach(asteroid => {
-                asteroid.x += (slowEnemies > 0 ? asteroid.speed * 0.2 : asteroid.speed);
-                asteroid.y += (slowEnemies > 0 ? asteroid.speed * 0.2 : asteroid.speed) * 0.5;
-                asteroid.rotation += asteroid.rotationSpeed * (slowEnemies > 0 ? 0.2 : 1);
+            if (nearestEnemy) {
+                const targetAngle = angle(bullet.x, bullet.y, nearestEnemy.x, nearestEnemy.y);
+                const currentAngle = Math.atan2(bullet.vy, bullet.vx);
+                const angleDiff = targetAngle - currentAngle;
+                const turnRate = 0.1;
                 
-                if (asteroid.x > canvas.width + asteroid.size || asteroid.y > canvas.height + asteroid.size) {
-                    // Reset asteroid off-screen
-                    asteroid.x = -asteroid.size;
-                    asteroid.y = Math.random() * canvas.height;
-                }
-            });
-
-
-            // Update player trail
-            player.trail.unshift({x: player.x, y: player.y});
-            if (player.trail.length > 10) player.trail.pop();
-
-            // Player movement
-            let moveX = 0, moveY = 0;
-            
-            if (joystickActive && isMobile) {
-                moveX = joystickX * player.speed;
-                moveY = joystickY * player.speed;
-            } else {
-                if (keys['w'] || keys['ArrowUp']) moveY -= 1;
-                if (keys['s'] || keys['ArrowDown']) moveY += 1;
-                if (keys['a'] || keys['ArrowLeft']) moveX -= 1;
-                if (keys['d'] || keys['ArrowRight']) moveX += 1;
+                const newAngle = currentAngle + Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnRate);
+                const speed = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
+                bullet.vx = Math.cos(newAngle) * speed;
+                bullet.vy = Math.sin(newAngle) * speed;
             }
-            
-            // Normalize diagonal movement
-            if (moveX !== 0 && moveY !== 0) {
-                moveX *= 0.7071;
-                moveY *= 0.7071;
-            }
-            
-            // Dash ability
-            let speedMultiplier = 1;
-            if (dash.active && dash.duration > 0) {
-                speedMultiplier = 3;
-                dash.duration--;
-                spawnParticle(player.x, player.y, '#00ffff', 3, 2);
-            } else {
-                dash.active = false;
-                dash.duration = 10;
-            }
-            
-            player.x += moveX * player.speed * speedMultiplier;
-            player.y += moveY * player.speed * speedMultiplier;
-
-            // Keep player in bounds
-            player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
-            player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
-
-            // --- Shooting Logic (Gameplay Feature: New Weapons & Pooling) ---
-            if (player.shootCooldown > 0) player.shootCooldown--;
-            
-            let currentTarget = null;
-            if (enemies.length > 0 && (autoAim || player.weaponType === 'homing_missile')) {
-                 // Find the closest enemy for auto-aim/homing-missile
-                let closestDist = Infinity;
-                enemies.forEach(enemy => {
-                    const dist = distance(player.x, player.y, enemy.x, enemy.y);
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        currentTarget = enemy;
+        }
+        
+        bullet.x += bullet.vx;
+        bullet.y += bullet.vy;
+        bullet.life--;
+        
+        // Remove bullets that are off-screen or expired
+        if (bullet.life <= 0 || bullet.x < -50 || bullet.x > canvas.width + 50 || 
+            bullet.y < -50 || bullet.y > canvas.height + 50) {
+            returnBullet(bullet);
+            continue;
+        }
+        
+        // Player bullet vs enemy collision
+        if (!bullet.isEnemy) {
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const enemy = enemies[j];
+                if (distance(bullet.x, bullet.y, enemy.x, enemy.y) < bullet.size + enemy.size) {
+                    // Critical hit chance
+                    const critChance = getSkillLevel('critChance') * 0.05;
+                    const isCrit = Math.random() < critChance;
+                    const damage = isCrit ? bullet.damage * 2 : bullet.damage;
+                    
+                    enemy.health -= damage;
+                    spawnParticle(bullet.x, bullet.y, isCrit ? '#ffff00' : enemy.color, isCrit ? 12 : 6, 2);
+                    
+                    if (isCrit) {
+                        screenShake(5);
                     }
-                });
-            }
-            
-            let aimX = currentTarget ? currentTarget.x : mouseX;
-            let aimY = currentTarget ? currentTarget.y : mouseY;
-            
-            if ((shooting || keys[' '] || specialActive) && player.shootCooldown <= 0) {
-                const bulletAngle = angle(player.x, player.y, aimX, aimY);
-                let fireRate = 8;
-                let weaponDamage = 1;
-                let bulletSize = 6;
-                let bulletSpeed = 12;
-                let bulletColor = '#00ff88';
-                let bulletType = 'normal';
-                
-                switch(player.weaponType) {
-                    case 'normal':
-                        // Base power levels: 1 bullet, multishot at power 3
-                        let bulletCount = powerLevel >= 3 ? 3 : 1;
-                        if (powerLevel >= 5) fireRate = 5; // Faster fire rate at max power
-                        weaponDamage = powerLevel >= 4 ? 2 : 1;
-                        bulletColor = powerLevel >= 2 ? '#00ffff' : '#00ff88';
-
-                        for (let i = 0; i < bulletCount; i++) {
-                            const spread = bulletCount > 1 ? (i - 1) * 0.2 : 0;
-                            getBullet(
-                                player.x, player.y, 
-                                Math.cos(bulletAngle + spread) * bulletSpeed, 
-                                Math.sin(bulletAngle + spread) * bulletSpeed, 
-                                bulletSize, 90, bulletColor, weaponDamage
-                            );
-                        }
+                    
+                    // Pierce mechanic
+                    if (bullet.pierce > 0) {
+                        bullet.pierce--;
+                    } else {
+                        returnBullet(bullet);
                         break;
-                    case 'laser': // New Weapon Type (Gameplay Feature)
-                        fireRate = 40; // Slow fire rate
-                        weaponDamage = 5; // High damage
-                        bulletSize = 10;
-                        bulletColor = '#ff00ff';
-                        bulletType = 'laser';
-                        // Laser bullet (treated as a long, high-damage projectile)
-                        getBullet(
-                            player.x, player.y, 
-                            Math.cos(bulletAngle) * 20, 
-                            Math.sin(bulletAngle) * 20, 
-                            bulletSize, 30, bulletColor, weaponDamage, false, bulletType
-                        );
-                        break;
-                    case 'homing_missile': // New Weapon Type (Gameplay Feature)
-                        fireRate = 30;
-                        weaponDamage = 2;
-                        bulletSize = 8;
-                        bulletColor = '#ffaa00';
-                        bulletType = 'homing';
+                    }
+                    
+                    if (enemy.health <= 0) {
+                        // Enemy killed
+                        combo++;
+                        comboTimer = 120; // 2 seconds at 60fps
                         
-                        // Homing missile targets the closest enemy
-                        getBullet(
-                            player.x, player.y, 
-                            Math.cos(bulletAngle) * 5, 
-                            Math.sin(bulletAngle) * 5, 
-                            bulletSize, 180, bulletColor, weaponDamage, false, bulletType, currentTarget
-                        );
+                        let multiplier = Math.min(10, Math.floor(combo / 5) + 1);
+                        let scoreGain = 15 * multiplier * grazeBonus;
+                        
+                        // Fever mode bonus
+                        if (feverMode) scoreGain *= 2;
+                        
+                        score += Math.floor(scoreGain);
+                        kills++;
+                        experience += 10;
+                        
+                        spawnParticle(enemy.x, enemy.y, '#ffffff', 15, 4);
+                        spawnLoot(enemy.x, enemy.y, enemy.type);
+                        enemies.splice(j, 1);
+                        
+                        // Check for fever mode
+                        if (combo >= 20 && !feverMode) {
+                            feverMode = true;
+                            feverTimer = 600; // 10 seconds
+                            showAchievement('🔥 FEVER MODE ACTIVATED!');
+                            screenShake(15);
+                        }
+                        
                         break;
-                }
-                
-                player.shootCooldown = fireRate;
-                
-                // Screen shake for powerful shots (Visual Upgrade)
-                if (weaponDamage >= 5 || player.weaponType === 'laser') {
-                    screenShake = 5;
-                }
-            }
-
-            // --- Special ability ---
-            if (specialCooldown > 0) specialCooldown--;
-            
-            if ((keys['e'] || keys['Shift'] || specialActive) && specialCooldown <= 0 && powerLevel >= 2) {
-                createEffect(player.x, player.y, 'nova');
-                screenShake = 10;
-                
-                // Damage all nearby enemies
-                enemies.forEach(enemy => {
-                    const dmg = 5;
-                    if (distance(player.x, player.y, enemy.x, enemy.y) < 200) {
-                        enemy.health -= dmg;
-                        createDamageIndicator(enemy.x, enemy.y, dmg, '#ffff00');
-                        spawnParticle(enemy.x, enemy.y, '#ffff00', 5);
-                    }
-                });
-                
-                specialCooldown = 180; // 3 seconds at 60fps
-            }
-            // Animated ability cooldown UI element (UI Element)
-            ui.abilityCooldownFill.style.width = (1 - (specialCooldown / 180)) * 100 + '%';
-
-
-            // --- Update bullets (Pooling) ---
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const bullet = bullets[i];
-                
-                if (bullet.type === 'homing' && bullet.homingTarget && bullet.homingTarget.health > 0) {
-                    // Update velocity to home towards target
-                    const angleToTarget = angle(bullet.x, bullet.y, bullet.homingTarget.x, bullet.homingTarget.y);
-                    const homingSpeed = 0.05;
-                    bullet.vx = bullet.vx * (1 - homingSpeed) + Math.cos(angleToTarget) * 12 * homingSpeed;
-                    bullet.vy = bullet.vy * (1 - homingSpeed) + Math.sin(angleToTarget) * 12 * homingSpeed;
-                }
-                
-                // Time warp affects bullet speed
-                let timeMultiplier = timeWarp.active ? 0.3 : 1;
-                if (bullet.isEnemy && timeWarp.active) timeMultiplier = 0.1; // Slow enemy bullets more
-                
-                bullet.x += bullet.vx * (slowEnemies > 0 && bullet.isEnemy ? 0.2 : timeMultiplier);
-                bullet.y += bullet.vy * (slowEnemies > 0 && bullet.isEnemy ? 0.2 : timeMultiplier);
-                bullet.life--;
-                
-                // Update bullet trail
-                bullet.trail.unshift({x: bullet.x, y: bullet.y});
-                if (bullet.trail.length > 5) bullet.trail.pop();
-
-                if (bullet.life <= 0 || bullet.x < -50 || bullet.x > canvas.width + 50 || 
-                    bullet.y < -50 || bullet.y > canvas.height + 50) {
-                    returnBullet(bullet); // Use pooling return
-                }
-            }
-
-            // --- Update enemies (Collision, New Types, Combo Logic) ---
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                const enemyMoveSpeed = enemy.speed * (slowEnemies > 0 ? 0.2 : 1); // Freeze Power-up
-                
-                // Update enemy trail
-                enemy.trail.unshift({x: enemy.x, y: enemy.y});
-                if (enemy.trail.length > 8) enemy.trail.pop();
-                
-                // Move towards player
-                const dx = player.x - enemy.x;
-                const dy = player.y - enemy.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                
-                if (dist > 0) {
-                    if (enemy.type !== 'mine') { // Mines do not move (New Enemy Type)
-                        enemy.x += (dx / dist) * enemyMoveSpeed;
-                        enemy.y += (dy / dist) * enemyMoveSpeed;
-                    } else if (enemy.type === 'mine' && enemy.mineTimer > 0) {
-                         // Mine Detonation Countdown
-                         enemy.mineTimer--;
-                         if (enemy.mineTimer <= 0) {
-                             // Mine Detonation
-                             if (distance(enemy.x, enemy.y, player.x, player.y) < 100 && invincible <= 0) {
-                                 health -= 20;
-                                 createDamageIndicator(player.x, player.y, 20, '#ff0000');
-                             }
-                             screenShake = 15;
-                             spawnParticle(enemy.x, enemy.y, '#ff0000', 30, 8);
-                             enemies.splice(i, 1);
-                             continue;
-                         }
                     }
                 }
-
-                // Enemy shooting (for shooter & homing types)
-                if ((enemy.type === 'shooter' || enemy.type === 'homing') && enemy.shootCooldown <= 0 && dist < 400) {
-                    const angleToPlayer = angle(enemy.x, enemy.y, player.x, player.y);
-                    const isHoming = enemy.type === 'homing';
-                    
-                    getBullet(
-                        enemy.x, enemy.y,
-                        Math.cos(angleToPlayer) * (isHoming ? 4 : 7),
-                        Math.sin(angleToPlayer) * (isHoming ? 4 : 7),
-                        isHoming ? 6 : 5, 
-                        120, '#ff4444', 1, true, isHoming ? 'homing_enemy' : 'normal'
-                    );
-                    enemy.shootCooldown = isHoming ? 120 : 90;
-                }
-                if (enemy.shootCooldown > 0) enemy.shootCooldown--;
-
-                // Check collision with player
-                if (distance(enemy.x, enemy.y, player.x, player.y) < enemy.size + player.size) {
-                    spawnParticle(enemy.x, enemy.y, '#ff4444', 12, 4);
-                    
-                    if (invincible <= 0) { // Invincibility Power-up check
-                        health -= 10;
-                        createDamageIndicator(player.x, player.y, 10, '#ff0000');
-                        screenShake = 10;
-                    }
-                    
-                    if (health <= 0) {
+            }
+        }
+        
+        // Enemy bullet vs player collision
+        if (bullet.isEnemy && invincible <= 0) {
+            if (distance(bullet.x, bullet.y, player.x, player.y) < bullet.size + player.hitboxSize) {
+                health -= 20;
+                invincible = 60;
+                combo = 0; // COMBO BREAK!
+                grazeBonus = 1.0;
+                
+                spawnParticle(player.x, player.y, '#ff4444', 10, 3);
+                screenShake(10);
+                returnBullet(bullet);
+                
+                if (health <= 0) {
+                    // Check for revive skill
+                    if (getSkillLevel('revive') > 0) {
+                        health = maxHealth * 0.5;
+                        skillLevels.revive--;
+                        localStorage.setItem('spaceshooter_skills', JSON.stringify(skillLevels));
+                        showAchievement('💀 REVIVED! Lives remaining: ' + getSkillLevel('revive'));
+                        spawnParticle(player.x, player.y, '#00ff88', 30, 5);
+                    } else {
                         gameOver();
                         return;
                     }
-                    
-                    createNotification('-10 Health' + (invincible > 0 ? ' (Invincible Blocked)' : ''), '#ff4444');
-                    enemy.health = 0; // Destroy enemy on collision
                 }
-
-                // Check collision with bullets (More efficient: use pooling index)
-                for (let j = bullets.length - 1; j >= 0; j--) {
-                    const bullet = bullets[j];
-                    if (bullet.isEnemy || !bullet.active) continue;
-                    
-                    if (distance(bullet.x, bullet.y, enemy.x, enemy.y) < bullet.size + enemy.size) {
-                        
-                        // Collision detected
-                        let damageDealt = bullet.damage;
-                        if (bullet.type === 'laser') damageDealt *= 2; // Extra damage for laser
-                        
-                        // Critical hit system
-                        let isCritical = Math.random() < criticalHit.chance;
-                        if (isCritical) {
-                            damageDealt *= criticalHit.multiplier;
-                            createDamageIndicator(enemy.x, enemy.y, damageDealt, '#ffff00');
-                            createNotification('CRITICAL!', '#ffff00');
-                            screenShake = 8;
-                        } else {
-                            createDamageIndicator(enemy.x, enemy.y, damageDealt);
-                        }
-                        
-                        spawnParticle(bullet.x, bullet.y, enemy.color, 8, 3);
-                        enemy.health -= damageDealt;
-                        
-                        returnBullet(bullet); // Use pooling return for bullet
-
-                        if (enemy.health <= 0) {
-                            spawnParticle(enemy.x, enemy.y, '#ffffff', 15, 4);
-                            
-                            // Combo/Multiplier Logic (UI Element)
-                            combo++;
-                            comboTimer = 120; // 2 seconds to keep combo going
-                            let multiplier = Math.min(5, Math.floor(combo / 5) + 1);
-                            
-                            let baseScore = enemy.type === 'tank' ? 30 : enemy.type === 'shooter' ? 25 : 15;
-                            let earnedScore = baseScore * multiplier;
-                            if (isCritical) earnedScore *= 2;
-                            
-                            score += earnedScore;
-                            experience += Math.floor(earnedScore / 10);
-                            kills++;
-                            
-                            // Chance to spawn powerup
-                            if (Math.random() < 0.2) {
-                                spawnPowerup(enemy.x, enemy.y);
-                            }
-                            
-                            // Remove enemy
-                            enemies.splice(i, 1);
-                            
-                            // Screen shake for kill
-                            screenShake = 2;
-                            
-                            break;
-                        }
-                    }
-                }
+                continue;
             }
-
-            // --- Update Boss (Gameplay Feature: New Patterns) ---
-            if (boss) {
-                // Phase Check (New Boss Patterns)
-                let phase1Health = boss.maxHealth * 0.5;
-                if (boss.health < phase1Health && boss.phase < 2) {
-                    boss.phase = 2;
-                    createNotification('BOSS: PHASE 2 ACTIVATED!', '#ff8800');
-                    boss.patternCooldown = 1; // Immediately start new pattern
-                }
-                
-                // Update boss trail
-                boss.trail.unshift({x: boss.x, y: boss.y});
-                if (boss.trail.length > 15) boss.trail.pop();
-                
-                // Boss movement
-                boss.y += boss.speed;
-                if (boss.y > 100) boss.y = 100;
-                
-                // Boss shooting patterns
-                boss.patternCooldown--;
-                boss.laserTimer--;
-                
-                if (boss.patternCooldown <= 0) {
-                    const pattern = Math.floor(Math.random() * (boss.phase === 2 ? 3 : 2)); // 3 patterns in phase 2
-                    
-                    switch(pattern) {
-                        case 0: // Spiral pattern (Existing + scaled)
-                            for (let i = 0; i < 8 + boss.phase * 2; i++) {
-                                const bulletAngle = (i / (8 + boss.phase * 2)) * Math.PI * 2 + boss.phase;
-                                getBullet(boss.x, boss.y, Math.cos(bulletAngle) * 4, Math.sin(bulletAngle) * 4, 8, 180, '#ff0066', 2, true);
-                            }
-                            boss.phase += 0.2;
-                            boss.patternCooldown = 60;
-                            break;
-                        case 1: // Homing Missile Barrage (New Boss Pattern)
-                            for(let i = 0; i < 3; i++) {
-                                const bulletAngle = angle(boss.x, boss.y, player.x, player.y) + random(-0.3, 0.3);
-                                setTimeout(() => {
-                                    getBullet(boss.x, boss.y, Math.cos(bulletAngle) * 5, Math.sin(bulletAngle) * 5, 8, 240, '#ffaa00', 2, true, 'homing_enemy');
-                                }, i * 20);
-                            }
-                            boss.patternCooldown = 120;
-                            break;
-                        case 2: // Laser Beam (New Boss Pattern - Phase 2 only)
-                            boss.laserActive = true;
-                            boss.laserTimer = 90; // Beam duration + warning
-                            boss.patternCooldown = 240; // Long cooldown
-                            screenShake = 20;
-                            break;
-                    }
-                }
-                
-                // Laser Beam Active Check
-                if (boss.laserActive && boss.laserTimer > 60) {
-                    // Warning phase (drawing in draw() function)
-                } else if (boss.laserActive && boss.laserTimer > 0) {
-                    // Firing phase (damage logic)
-                    if (Math.abs(player.y - boss.y) < player.size + 10) { // Check if player is on the horizontal line
-                        if (invincible <= 0) {
-                             health -= 1; // Continuous damage
-                             createDamageIndicator(player.x, player.y, 1, '#ff0000');
-                        }
-                    }
-                } else if (boss.laserActive && boss.laserTimer <= 0) {
-                    boss.laserActive = false;
-                }
-                
-                // Update boss health bar
-                ui.bossHealthFill.style.width = (boss.health / boss.maxHealth * 100) + '%';
-                
-                // Check collision with bullets
-                for (let j = bullets.length - 1; j >= 0; j--) {
-                    const bullet = bullets[j];
-                    if (bullet.isEnemy || !bullet.active) continue;
-                    
-                    if (distance(bullet.x, bullet.y, boss.x, boss.y) < bullet.size + boss.size) {
-                        spawnParticle(bullet.x, bullet.y, '#ff0066', 5, 2);
-                        
-                        let damageDealt = bullet.damage;
-                        createDamageIndicator(boss.x, boss.y, damageDealt, '#00ff88');
-                        
-                        boss.health -= damageDealt;
-                        returnBullet(bullet); // Use pooling return for bullet
-                        
-                        screenShake = 3;
-
-                        if (boss.health <= 0) {
-                            spawnParticle(boss.x, boss.y, '#ffffff', 50, 6);
-                            createNotification('BOSS DEFEATED!', '#00ff88');
-                            
-                            // Chance for a special weapon powerup after boss fight
-                            if (Math.random() < 0.5) spawnPowerup(boss.x, boss.y);
-
-                            score += 500;
-                            kills += 10;
-                            boss = null;
-                            bossActive = false;
-                            ui.bossHealth.style.display = 'none';
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // --- Update particles (Pooling) ---
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const particle = particles[i];
-                if (!particle.active) continue;
-
-                particle.x += particle.vx;
-                particle.y += particle.vy;
-                particle.life--;
-                particle.vx *= 0.95;
-                particle.vy *= 0.95;
-
-                if (particle.life <= 0) {
-                    returnParticle(particle); // Use pooling return
-                }
-            }
-
-            // Update powerups
-            for (let i = powerups.length - 1; i >= 0; i--) {
-                const powerup = powerups[i];
-                powerup.life--;
-                
-                if (powerup.life <= 0) {
-                    powerups.splice(i, 1);
-                    continue;
-                }
-                
-                // Check collision with player
-                if (distance(powerup.x, powerup.y, player.x, player.y) < powerup.size + player.size) {
-                    applyPowerup(powerup.type);
-                    createNotification(powerup.type.toUpperCase(), powerup.color);
-                    powerups.splice(i, 1);
-                }
-            }
-
-            // Update effects
-            for (let i = effects.length - 1; i >= 0; i--) {
-                const effect = effects[i];
-                effect.life--;
-                effect.size += 2;
-                
-                if (effect.life <= 0) {
-                    effects.splice(i, 1);
-                }
-            }
-
-            // --- Spawn enemies (Better Wave Progression) ---
-            enemySpawnTimer++;
-            const baseSpawnRate = 100;
-            const spawnRateFactor = Math.max(1, wave / 5); // Enemies spawn faster as waves increase
-            const spawnRate = Math.max(20, baseSpawnRate / spawnRateFactor);
-            
-            if (enemySpawnTimer >= spawnRate && !bossActive) {
-                spawnEnemy();
-                enemySpawnTimer = 0;
-            }
-
-            // --- Wave progression (Better Wave Progression) ---
-            waveTimer++;
-            // New wave after 30 seconds (1800 frames) or if enemies are cleared early.
-            const waveDuration = 1800;
-            if ((waveTimer >= waveDuration || enemies.length === 0) && !bossActive && waveTimer > 60) { // Min 1 second gap (60 frames)
-                wave++;
-                waveTimer = 0;
-                
-                // Every 3 waves, spawn a boss
-                if (wave % 3 === 0) {
-                    setTimeout(() => spawnBoss(), 1000);
-                } else {
-                    createNotification('WAVE ' + wave, '#00ff88');
-                    // Spawn multiple enemies for new wave
-                    const enemyCount = Math.min(5 + wave * 3, 30); // More aggressive enemy spawning
-                    for (let i = 0; i < enemyCount; i++) {
-                        setTimeout(() => spawnEnemy(), i * 200);
-                    }
-                }
-            }
-
-            updateUI();
         }
-
-        // Apply powerup (UPDATED with new power-ups and weapons)
-        function applyPowerup(type) {
-            switch(type) {
-                case 'health':
-                    health = Math.min(maxHealth, health + 30);
+    }
+    
+    // Update combo timer
+    if (comboTimer > 0) {
+        comboTimer--;
+        if (comboTimer <= 0) {
+            combo = 0;
+        }
+    }
+    
+    // Update fever mode
+    if (feverMode) {
+        feverTimer--;
+        if (feverTimer <= 0) {
+            feverMode = false;
+        }
+    }
+    
+    // Update enemies
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+        
+        // Move towards player
+        const angleToPlayer = angle(enemy.x, enemy.y, player.x, player.y);
+        enemy.x += Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y += Math.sin(angleToPlayer) * enemy.speed;
+        
+        // Enemy shooting patterns
+        if (enemy.shootCooldown <= 0) {
+            switch (enemy.shootPattern) {
+                case 'single':
+                    getBullet(enemy.x, enemy.y, 
+                        Math.cos(angleToPlayer) * 4, Math.sin(angleToPlayer) * 4,
+                        4, 120, '#ff4444', 15, true);
+                    enemy.shootCooldown = 60;
                     break;
-                case 'power':
-                    powerLevel = Math.min(5, powerLevel + 1);
+                    
+                case 'spiral':
+                    for (let j = 0; j < 8; j++) {
+                        const bulletAngle = (j / 8) * Math.PI * 2 + gameTime * 0.05;
+                        getBullet(enemy.x, enemy.y, 
+                            Math.cos(bulletAngle) * 4, Math.sin(bulletAngle) * 4,
+                            5, 180, '#aa44ff', 20, true);
+                    }
+                    enemy.shootCooldown = 80;
                     break;
-                case 'shield':
-                    createEffect(player.x, player.y, 'shield', 120);
-                    invincible = Math.max(invincible, 120); // 2 seconds of invincibility
+                    
+                case 'aimed':
+                    getBullet(enemy.x, enemy.y,
+                        Math.cos(angleToPlayer) * 6, Math.sin(angleToPlayer) * 6,
+                        4, 120, '#ffaa00', 18, true);
+                    enemy.shootCooldown = 40;
                     break;
-                case 'speed':
-                    player.speed += 2;
-                    setTimeout(() => player.speed -= 2, 10000);
+                    
+                case 'burst':
+                    for (let j = 0; j < 5; j++) {
+                        const spreadAngle = angleToPlayer + (j - 2) * 0.3;
+                        getBullet(enemy.x, enemy.y,
+                            Math.cos(spreadAngle) * 5, Math.sin(spreadAngle) * 5,
+                            4, 150, '#ff00aa', 22, true);
+                    }
+                    enemy.shootCooldown = 100;
                     break;
-                case 'multishot':
-                    player.weaponType = 'normal'; // Reset weapon type if not normal
-                    powerLevel = Math.max(powerLevel, 3);
-                    break;
-                case 'invincibility': // New Powerup
-                    invincible = Math.max(invincible, 300); // 5 seconds of invincibility
-                    player.weaponType = 'normal';
-                    break;
-                case 'freeze': // New Powerup
-                    slowEnemies = 180; // 3 seconds of slow motion
-                    createEffect(canvas.width/2, canvas.height/2, 'freeze', 180);
-                    break;
-                case 'laser': // New Weapon Powerup
-                    player.weaponType = 'laser';
-                    setTimeout(() => player.weaponType = 'normal', 10000); // 10 seconds of laser
-                    break;
-                case 'homing_missile': // New Weapon Powerup
-                    player.weaponType = 'homing_missile';
-                    setTimeout(() => player.weaponType = 'normal', 10000);
-                    break;
-                case 'magnet': // New Powerup
-                    magnetField.active = true;
-                    magnetField.duration = 300; // 5 seconds
-                    createEffect(player.x, player.y, 'magnet', 300);
-                    break;
-                case 'double_damage': // New Powerup
-                    criticalHit.chance = Math.min(1.0, criticalHit.chance + 0.2);
-                    setTimeout(() => criticalHit.chance = Math.max(0.1, criticalHit.chance - 0.2), 15000);
+                    
+                case 'chaos':
+                    // Boss pattern - multiple types
+                    for (let j = 0; j < 12; j++) {
+                        const bulletAngle = (j / 12) * Math.PI * 2 + gameTime * 0.03;
+                        getBullet(enemy.x, enemy.y,
+                            Math.cos(bulletAngle) * 3, Math.sin(bulletAngle) * 3,
+                            6, 200, '#ff0066', 25, true);
+                    }
+                    enemy.shootCooldown = 60;
                     break;
             }
         }
-
-        // Draw game (UPDATED with all visuals)
-        function draw() {
-            // Apply screen shake offset (Visual Upgrade)
-            let shakeX = 0, shakeY = 0;
-            if (screenShake > 0) {
-                shakeX = random(-5, 5);
-                shakeY = random(-5, 5);
+        
+        if (enemy.shootCooldown > 0) enemy.shootCooldown--;
+        
+        // GRAZE DETECTION - bullets near player increase multiplier
+        bullets.forEach(bullet => {
+            if (bullet.isEnemy) {
+                const dist = distance(bullet.x, bullet.y, player.x, player.y);
+                if (dist < 25 && dist > player.hitboxSize) {
+                    grazeBonus = Math.min(2.5, grazeBonus + 0.005);
+                    spawnParticle(player.x, player.y, '#00ffff', 1, 1);
+                }
             }
-            ctx.save();
-            ctx.translate(shakeX, shakeY);
-            
-            // Clear canvas
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw background stars (Parallax)
-            backgroundStars.forEach(star => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
-                ctx.beginPath();
-                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            
-            // Draw background asteroids (Visual Upgrade)
-            backgroundAsteroids.forEach(asteroid => {
-                ctx.save();
-                ctx.translate(asteroid.x, asteroid.y);
-                ctx.rotate(asteroid.rotation);
+        });
+        
+        // Player collision with enemy
+        if (distance(enemy.x, enemy.y, player.x, player.y) < enemy.size + player.hitboxSize) {
+            if (invincible <= 0) {
+                health -= 25;
+                invincible = 60;
+                combo = 0;
+                grazeBonus = 1.0;
                 
-                // Draw a simple jagged shape for asteroid
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(0, -asteroid.size);
-                ctx.lineTo(asteroid.size * 0.7, asteroid.size * 0.5);
-                ctx.lineTo(-asteroid.size * 0.5, asteroid.size * 0.3);
-                ctx.lineTo(-asteroid.size * 0.8, -asteroid.size * 0.2);
-                ctx.closePath();
-                ctx.stroke();
+                spawnParticle(enemy.x, enemy.y, '#ff4444', 15, 3);
+                screenShake(15);
+                enemies.splice(i, 1);
                 
-                ctx.restore();
-            });
-
-
-            if (!gameRunning) {
-                ctx.restore(); // Restore context if game not running
-                return;
-            }
-
-            // Draw effects
-            effects.forEach(effect => {
-                if (effect.type === 'nova') {
-                    const gradient = ctx.createRadialGradient(
-                        effect.x, effect.y, 0,
-                        effect.x, effect.y, effect.size
-                    );
-                    gradient.addColorStop(0, 'rgba(0, 255, 136, 0.8)');
-                    gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (effect.type === 'shield') {
-                    // Draw player shield
-                    const alpha = effect.life / 30;
-                    ctx.strokeStyle = `rgba(0, 136, 255, ${alpha})`;
-                    ctx.lineWidth = 5;
-                    ctx.beginPath();
-                    ctx.arc(player.x, player.y, player.size + 10, 0, Math.PI * 2);
-                    ctx.stroke();
-                } else if (effect.type === 'freeze') {
-                    // Draw slow motion overlay
-                    const alpha = effect.life / 180 * 0.5;
-                    ctx.fillStyle = `rgba(0, 204, 255, ${alpha})`;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                } else if (effect.type === 'magnet') {
-                    // Draw magnet field
-                    const alpha = effect.life / 300;
-                    ctx.strokeStyle = `rgba(255, 136, 0, ${alpha})`;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(player.x, player.y, 200, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            });
-
-            // Draw particle trails (using pooling active flag)
-            particles.forEach(particle => {
-                if (!particle.active) return;
-                const alpha = particle.life / 40;
-                ctx.fillStyle = particle.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-                ctx.beginPath();
-                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Draw bullet trails and bullets (using pooling active flag)
-            bullets.forEach(bullet => {
-                if (!bullet.active) return;
-                
-                // Draw trail
-                bullet.trail.forEach((point, index) => {
-                    const alpha = index / bullet.trail.length * 0.5;
-                    ctx.strokeStyle = bullet.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-                    ctx.lineWidth = bullet.size * 0.5;
-                    ctx.beginPath();
-                    if (index > 0) {
-                        ctx.moveTo(bullet.trail[index-1].x, bullet.trail[index-1].y);
-                        ctx.lineTo(point.x, point.y);
-                    }
-                    ctx.stroke();
-                });
-                
-                // Draw bullet body
-                ctx.fillStyle = bullet.color;
-                ctx.beginPath();
-                ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Neon Glow Effect (Visual Upgrade)
-                const glowSize = bullet.type === 'laser' ? bullet.size * 4 : bullet.size * 2;
-                const gradient = ctx.createRadialGradient(
-                    bullet.x, bullet.y, 0,
-                    bullet.x, bullet.y, glowSize
-                );
-                gradient.addColorStop(0, bullet.color + '80');
-                gradient.addColorStop(1, bullet.color + '00');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(bullet.x, bullet.y, glowSize, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Draw enemy trails
-            enemies.forEach(enemy => {
-                enemy.trail.forEach((point, index) => {
-                    const alpha = index / enemy.trail.length * 0.3;
-                    ctx.fillStyle = enemy.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-                    ctx.beginPath();
-                    ctx.arc(point.x, point.y, enemy.size * 0.5, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            });
-
-            // Draw enemies
-            enemies.forEach(enemy => {
-                // Draw Mine Timer Warning (New Enemy Type)
-                if (enemy.type === 'mine' && enemy.mineTimer > 0) {
-                    const warningRadius = 100 * (enemy.mineTimer / 180);
-                    ctx.strokeStyle = enemy.mineTimer % 10 < 5 ? 'rgba(255, 0, 0, 0.8)' : 'rgba(255, 255, 0, 0.4)';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(enemy.x, enemy.y, 100, 0, Math.PI * 2); // Blast radius
-                    ctx.stroke();
-                    
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                    ctx.beginPath();
-                    ctx.arc(enemy.x, enemy.y, warningRadius, 0, Math.PI * 2); // Countdown fill
-                    ctx.fill();
-                }
-
-                // Glow effect
-                const gradient = ctx.createRadialGradient(
-                    enemy.x, enemy.y, 0,
-                    enemy.x, enemy.y, enemy.size * 2
-                );
-                gradient.addColorStop(0, enemy.color + '80');
-                gradient.addColorStop(1, enemy.color + '00');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(enemy.x, enemy.y, enemy.size * 2, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Enemy body
-                ctx.fillStyle = enemy.color;
-                ctx.beginPath();
-                ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Health bar
-                if (enemy.health < enemy.maxHealth) {
-                    const healthWidth = 30;
-                    const healthHeight = 4;
-                    const healthX = enemy.x - healthWidth / 2;
-                    const healthY = enemy.y - enemy.size - 10;
-                    
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(healthX, healthY, healthWidth, healthHeight);
-                    
-                    ctx.fillStyle = '#00ff00';
-                    ctx.fillRect(healthX, healthY, healthWidth * (enemy.health / enemy.maxHealth), healthHeight);
-                }
-            });
-
-            // Draw boss
-            if (boss) {
-                // Boss Laser Beam Warning/Active (Boss Pattern)
-                if (boss.laserActive) {
-                    const laserColor = boss.laserTimer > 60 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)';
-                    const lineWidth = boss.laserTimer > 60 ? 10 : 30; // Thin warning, thick fire
-                    
-                    ctx.strokeStyle = laserColor;
-                    ctx.lineWidth = lineWidth;
-                    ctx.beginPath();
-                    ctx.moveTo(0, boss.y);
-                    ctx.lineTo(canvas.width, boss.y);
-                    ctx.stroke();
-                    
-                    // Firing effect
-                    if (boss.laserTimer <= 60) {
-                         ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-                         ctx.fillRect(0, boss.y - 15, canvas.width, 30);
+                if (health <= 0) {
+                    if (getSkillLevel('revive') > 0) {
+                        health = maxHealth * 0.5;
+                        skillLevels.revive--;
+                        localStorage.setItem('spaceshooter_skills', JSON.stringify(skillLevels));
+                        showAchievement('💀 REVIVED!');
+                    } else {
+                        gameOver();
+                        return;
                     }
                 }
-
-                // Boss trail
-                boss.trail.forEach((point, index) => {
-                    const alpha = index / boss.trail.length * 0.2;
-                    ctx.fillStyle = boss.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-                    ctx.beginPath();
-                    ctx.arc(point.x, point.y, boss.size * 0.8, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-                
-                // Boss glow
-                const pulse = Math.sin(Date.now() * 0.01) * 10;
-                const gradient = ctx.createRadialGradient(
-                    boss.x, boss.y, 0,
-                    boss.x, boss.y, boss.size * 2 + pulse
-                );
-                gradient.addColorStop(0, boss.color + 'c0');
-                gradient.addColorStop(0.5, boss.color + '60');
-                gradient.addColorStop(1, boss.color + '00');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(boss.x, boss.y, boss.size * 2 + pulse, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Boss body
-                ctx.fillStyle = boss.color;
-                ctx.beginPath();
-                ctx.arc(boss.x, boss.y, boss.size, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Boss details
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(boss.x, boss.y, boss.size * 0.7, 0, Math.PI * 2);
-                ctx.stroke();
             }
+            continue;
+        }
+    }
+    
+    // Update particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const particle = particles[i];
+        if (!particle.active) continue;
+        
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.life--;
+        particle.vx *= 0.95;
+        particle.vy *= 0.95;
+        
+        if (particle.life <= 0) {
+            returnParticle(particle);
+        }
+    }
+    
+    // Update loot items
+    for (let i = lootItems.length - 1; i >= 0; i--) {
+        const loot = lootItems[i];
+        loot.life--;
+        loot.pulse += 0.1;
+        
+        // Magnet effect
+        const magnetRange = 50 + (getSkillLevel('magnetRange') * 50);
+        const dist = distance(loot.x, loot.y, player.x, player.y);
+        
+        if (dist < magnetRange) {
+            const pullAngle = angle(loot.x, loot.y, player.x, player.y);
+            const pullStrength = (magnetRange - dist) / magnetRange * 3;
+            loot.x += Math.cos(pullAngle) * pullStrength;
+            loot.y += Math.sin(pullAngle) * pullStrength;
+        }
+        
+        if (dist < loot.size + player.size) {
+            applyLoot(loot);
+            lootItems.splice(i, 1);
+            continue;
+        }
+        
+        if (loot.life <= 0) {
+            lootItems.splice(i, 1);
+        }
+    }
+    
+    // Auto-repair skill
+    if (getSkillLevel('autoRepair') > 0 && gameTime % 60 === 0) {
+        health = Math.min(maxHealth, health + 1);
+    }
+    
+    // Spawn enemies
+    const spawnRate = Math.max(15, 60 - wave * 2);
+    if (gameTime % spawnRate === 0) {
+        spawnEnemy();
+    }
+    
+    // Wave progression - ENDLESS MODE after wave 20
+    if (gameTime % 1800 === 0) { // Every 30 seconds
+        wave++;
+        
+        if (wave > 20) {
+            // ABYSS MODE - chaos modifiers
+            if (wave % 5 === 0) {
+                const modifiers = ['bulletRain', 'speedBoost', 'ghostShips'];
+                const modifier = modifiers[Math.floor(Math.random() * modifiers.length)];
+                showAchievement(`🌀 CHAOS MODIFIER: ${modifier.toUpperCase()}`);
+            }
+        }
+        
+        // Spawn wave enemies
+        const enemyCount = Math.min(wave + 2, 20);
+        for (let i = 0; i < enemyCount; i++) {
+            setTimeout(() => spawnEnemy(), i * 200);
+        }
+        
+        showAchievement(`🌊 WAVE ${wave}!`);
+    }
+    
+    // Level up system
+    if (experience >= experienceToNext) {
+        level++;
+        experience -= experienceToNext;
+        experienceToNext = Math.floor(experienceToNext * 1.2);
+        showAchievement(`⭐ LEVEL UP! Level ${level}`);
+        
+        // Restore some health on level up
+        health = Math.min(maxHealth, health + 20);
+    }
+    
+    updateUI();
+}
 
-            // Draw powerups
-            powerups.forEach(powerup => {
-                const pulse = Math.sin(Date.now() * 0.01) * 3;
-                
-                // Glow
-                const gradient = ctx.createRadialGradient(
-                    powerup.x, powerup.y, 0,
-                    powerup.x, powerup.y, powerup.size * 3
-                );
-                gradient.addColorStop(0, powerup.color + 'a0');
-                gradient.addColorStop(1, powerup.color + '00');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(powerup.x, powerup.y, powerup.size * 3, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Powerup body
-                ctx.fillStyle = powerup.color;
-                ctx.beginPath();
-                ctx.arc(powerup.x, powerup.y, powerup.size + pulse, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Icon
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 16px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                let icon = '?';
-                switch(powerup.type) {
-                    case 'health': icon = '❤️'; break;
-                    case 'power': icon = '⚡'; break;
-                    case 'shield': icon = '🛡️'; break;
-                    case 'speed': icon = '🚀'; break;
-                    case 'multishot': icon = '🎯'; break;
-                    case 'invincibility': icon = '🌟'; break; // New Icon
-                    case 'freeze': icon = '❄️'; break;
-                    case 'laser': icon = '🔥'; break;
-                    case 'homing_missile': icon = '🔭'; break;
-                    case 'magnet': icon = '🧲'; break;
-                    case 'double_damage': icon = '💥'; break;
-                }
-                ctx.fillText(icon, powerup.x, powerup.y);
-            });
-
-            // Draw player trail
-            player.trail.forEach((point, index) => {
-                const alpha = index / player.trail.length * 0.4;
-                ctx.fillStyle = player.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, player.size * 0.8, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Draw player
-            const playerGlow = ctx.createRadialGradient(
-                player.x, player.y, 0,
-                player.x, player.y, player.size * 3
-            );
-            playerGlow.addColorStop(0, player.color + 'c0');
-            playerGlow.addColorStop(1, player.color + '00');
-            ctx.fillStyle = playerGlow;
+// ENHANCED DRAW FUNCTION
+function draw() {
+    // Clear with dynamic background
+    ctx.fillStyle = feverMode ? 'rgba(50, 0, 100, 0.3)' : 'rgba(0, 0, 0, 0.2)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Background stars
+    backgroundStars.forEach(star => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    if (!gameRunning) return;
+    
+    // Particles
+    particles.forEach(particle => {
+        if (!particle.active) return;
+        const alpha = particle.life / 40;
+        ctx.fillStyle = particle.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    // Enhanced bullet rendering
+    bullets.forEach(bullet => {
+        if (!bullet.active) return;
+        
+        // Glow effect
+        const glowSize = bullet.size * (bullet.type === 'laser' ? 3 : 2);
+        const gradient = ctx.createRadialGradient(bullet.x, bullet.y, 0, bullet.x, bullet.y, glowSize);
+        gradient.addColorStop(0, bullet.color + 'ff');
+        gradient.addColorStop(1, bullet.color + '00');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, glowSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Core bullet
+        ctx.fillStyle = bullet.color;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Special effects for different bullet types
+        if (bullet.type === 'homing' && !bullet.isEnemy) {
+            ctx.strokeStyle = bullet.color;
+            ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size * 3, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Player body
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Player details
-            const playerAngle = angle(player.x, player.y, mouseX, mouseY);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size - 3, 0, Math.PI * 2);
+            ctx.arc(bullet.x, bullet.y, bullet.size + 3, 0, Math.PI * 2);
             ctx.stroke();
-            
-            // Direction indicator
+        }
+    });
+    
+    // Loot items with enhanced effects
+    lootItems.forEach(loot => {
+        const pulseSize = Math.sin(loot.pulse) * 3 + loot.size;
+        
+        if (loot.type === 'crystal') {
+            // Crystal sparkle effect
+            const sparkleGradient = ctx.createRadialGradient(loot.x, loot.y, 0, loot.x, loot.y, pulseSize * 3);
+            sparkleGradient.addColorStop(0, loot.color + 'ff');
+            sparkleGradient.addColorStop(0.5, loot.color + '80');
+            sparkleGradient.addColorStop(1, loot.color + '00');
+            ctx.fillStyle = sparkleGradient;
             ctx.beginPath();
-            ctx.moveTo(player.x, player.y);
-            ctx.lineTo(
-                player.x + Math.cos(playerAngle) * (player.size + 15),
-                player.y + Math.sin(playerAngle) * (player.size + 15)
-            );
-            ctx.stroke();
-            
-            // Special ability indicator
-            if (specialCooldown > 0) {
-                const cooldownPercent = 1 - (specialCooldown / 180);
-                ctx.beginPath();
-                ctx.arc(player.x, player.y, player.size + 5, -Math.PI/2, -Math.PI/2 + cooldownPercent * Math.PI * 2);
-                ctx.strokeStyle = '#ffff00';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
-            
-            ctx.restore(); // Restore context after applying screen shake offset
-        }
-
-        // Game loop
-        function gameLoop() {
-            update();
-            draw();
-            if (gameRunning) {
-                requestAnimationFrame(gameLoop);
-            }
-        }
-
-        // Event listeners
-        ui.startBtn.addEventListener('click', startGame);
-        ui.restartBtn.addEventListener('click', startGame);
-
-        // Keyboard events
-        window.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
-            if (e.key === ' ') e.preventDefault();
-            
-            // Dash ability (Q key)
-            if (e.key.toLowerCase() === 'q' && dash.cooldown <= 0 && gameRunning) {
-                dash.active = true;
-                dash.cooldown = 120; // 2 seconds
-                invincible = Math.max(invincible, 15); // Brief invincibility during dash
-                screenShake = 5;
-                ui.dashCooldown.style.display = 'block';
-            }
-            
-            // Time warp ability (T key)
-            if (e.key.toLowerCase() === 't' && timeWarp.duration <= 0 && powerLevel >= 3) {
-                timeWarp.active = true;
-                timeWarp.duration = 180; // 3 seconds
-                createNotification('TIME WARP!', '#00ffff');
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            keys[e.key.toLowerCase()] = false;
-        });
-
-        // Mouse events
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mouseX = e.clientX - rect.left;
-            mouseY = e.clientY - rect.top;
-        });
-
-        canvas.addEventListener('mousedown', (e) => {
-            shooting = true;
-            if (!gameRunning && !ui.startScreen.classList.contains('hidden')) {
-                startGame();
-            }
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            shooting = false;
-        });
-
-        // Touch events for mobile (UPDATED)
-        const joystick = document.getElementById('joystick');
-        const joystickHandle = document.getElementById('joystickHandle');
-        const shootBtn = document.getElementById('shootBtn');
-        const specialBtn = document.getElementById('specialBtn');
-        const autoAimToggle = document.getElementById('autoAimToggle'); // NEW
-
-        if (isMobile) {
-            document.getElementById('mobileControls').style.display = 'flex';
-            joystick.style.display = 'flex';
-            
-            // Auto-Aim Toggle (Mobile Enhancement)
-            autoAimToggle.addEventListener('click', () => {
-                autoAim = !autoAim;
-                autoAimToggle.style.backgroundColor = autoAim ? 'rgba(0, 255, 136, 0.6)' : 'rgba(0, 0, 0, 0.3)';
-            });
-            // Initial color set
-            autoAimToggle.style.backgroundColor = autoAim ? 'rgba(0, 255, 136, 0.6)' : 'rgba(0, 0, 0, 0.3)';
-            
-            // Joystick
-            joystick.addEventListener('touchstart', handleJoystickStart);
-            joystick.addEventListener('touchmove', handleJoystickMove);
-            joystick.addEventListener('touchend', handleJoystickEnd);
-            
-            // Shoot and Special Buttons
-            shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); shooting = true; });
-            shootBtn.addEventListener('touchend', (e) => { e.preventDefault(); shooting = false; });
-            
-            specialBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (specialCooldown <= 0 && powerLevel >= 2) {
-                    specialActive = true;
-                    setTimeout(() => specialActive = false, 100);
-                }
-            });
+            ctx.arc(loot.x, loot.y, pulseSize * 3, 0, Math.PI * 2);
+            ctx.fill();
         }
         
-        function handleJoystickStart(e) {
-            e.preventDefault();
-            joystickActive = true;
-            handleJoystickMove(e);
-        }
+        ctx.fillStyle = loot.color;
+        ctx.beginPath();
+        ctx.arc(loot.x, loot.y, pulseSize, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    // Enhanced enemy rendering
+    enemies.forEach(enemy => {
+        // Enemy glow
+        const gradient = ctx.createRadialGradient(enemy.x, enemy.y, 0, enemy.x, enemy.y, enemy.size * 2.5);
+        gradient.addColorStop(0, enemy.color + '80');
+        gradient.addColorStop(1, enemy.color + '00');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, enemy.size * 2.5, 0, Math.PI * 2);
+        ctx.fill();
         
-        function handleJoystickMove(e) {
-            if (!joystickActive) return;
-            e.preventDefault();
-            
-            const rect = joystick.getBoundingClientRect();
-            const touch = e.touches[0];
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const touchX = touch.clientX;
-            const touchY = touch.clientY;
-            
-            const dx = touchX - centerX;
-            const dy = touchY - centerY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxDistance = rect.width / 2 - 25;
-            
-            if (distance < maxDistance) {
-                joystickX = dx / maxDistance;
-                joystickY = dy / maxDistance;
-                joystickHandle.style.left = (dx + rect.width / 2 - 25) + 'px';
-                joystickHandle.style.top = (dy + rect.height / 2 - 25) + 'px';
-                joystickHandle.style.transform = ''; // Remove transform for precise movement
-            } else {
-                const angle = Math.atan2(dy, dx);
-                joystickX = Math.cos(angle);
-                joystickY = Math.sin(angle);
-                joystickHandle.style.left = (Math.cos(angle) * maxDistance + rect.width / 2 - 25) + 'px';
-                joystickHandle.style.top = (Math.sin(angle) * maxDistance + rect.height / 2 - 25) + 'px';
-                joystickHandle.style.transform = ''; // Remove transform for precise movement
-            }
-            
-            // Update mouse position for aiming (Mobile Enhancement)
-            // If auto-aim is off, use the joystick direction for aiming
-            if (!autoAim) {
-                mouseX = player.x + joystickX * 100;
-                mouseY = player.y + joystickY * 100;
-            } else {
-                 // Aim slightly below if not explicitly aiming
-                 mouseX = player.x;
-                 mouseY = player.y + 100;
-            }
-        }
+        // Enemy body
+        ctx.fillStyle = enemy.color;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
+        ctx.fill();
         
-        function handleJoystickEnd(e) {
-            e.preventDefault();
-            joystickActive = false;
-            joystickX = 0;
-            joystickY = 0;
-            // Better joystick responsiveness: Snap handle back with transform
-            joystickHandle.style.left = '50%';
-            joystickHandle.style.top = '50%';
-            joystickHandle.style.transform = 'translate(-50%, -50%)';
-        }
-
-        canvas.addEventListener('touchstart', (e) => {
-            // Prevent scrolling on canvas touch
-            e.preventDefault(); 
+        // Health bar for stronger enemies
+        if (enemy.health < enemy.maxHealth && enemy.maxHealth > 100) {
+            const barWidth = enemy.size * 2;
+            const barHeight = 4;
+            const healthPercent = enemy.health / enemy.maxHealth;
             
-            if (isMobile && e.target === canvas) {
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                mouseX = touch.clientX - rect.left;
-                mouseY = touch.clientY - rect.top;
-                
-                // If auto-aim is off, tapping the screen aims and shoots
-                if (!autoAim) {
-                    shooting = true;
-                }
-                
-                if (!gameRunning && !ui.startScreen.classList.contains('hidden')) {
-                    startGame();
-                }
-            }
-        });
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 10, barWidth, barHeight);
+            
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+            ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 10, barWidth * healthPercent, barHeight);
+        }
+    });
+    
+    // Enhanced player rendering
+    const playerGlow = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, player.size * 3);
+    playerGlow.addColorStop(0, player.color + 'ff');
+    playerGlow.addColorStop(0.7, player.color + '40');
+    playerGlow.addColorStop(1, player.color + '00');
+    ctx.fillStyle = playerGlow;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size * 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Player body
+    ctx.fillStyle = invincible > 0 ? '#ffffff' : player.color;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Show precise hitbox in fever mode or when invincible
+    if (feverMode || invincible > 0) {
+        ctx.strokeStyle = feverMode ? '#ff00ff' : '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.hitboxSize, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    
+    // Dash cooldown indicator
+    if (dashCooldown > 0) {
+        const dashPercent = 1 - (dashCooldown / 120);
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.size + 5, 0, Math.PI * 2 * dashPercent);
+        ctx.stroke();
+    }
+}
 
-        canvas.addEventListener('touchmove', (e) => {
-            if (isMobile && !joystickActive) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                mouseX = touch.clientX - rect.left;
-                mouseY = touch.clientY - rect.top;
-            }
-        });
+// GAME LOOP
+function gameLoop() {
+    update();
+    draw();
+    if (gameRunning) {
+        requestAnimationFrame(gameLoop);
+    }
+}
 
-        canvas.addEventListener('touchend', (e) => {
-            if (isMobile && e.target === canvas) {
-                e.preventDefault();
-                // Only stop shooting if a non-joystick/button touch ended
-                if (!autoAim) {
-                    shooting = false;
-                }
-            }
-        });
+// EVENT LISTENERS
+ui.startBtn.addEventListener('click', startGame);
+ui.restartBtn.addEventListener('click', startGame);
+ui.openSkillTreeBtn.addEventListener('click', () => {
+    ui.skillTreeModal.classList.remove('hidden');
+    updateSkillTreeUI();
+});
 
-        // Start drawing
-        draw();
+ui.closeSkillTree.addEventListener('click', () => {
+    ui.skillTreeModal.classList.add('hidden');
+});
+
+// Skill tree interactions
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.skill')) {
+        const skillElement = e.target.closest('.skill');
+        const skillName = skillElement.dataset.skill;
+        const cost = parseInt(skillElement.dataset.cost);
+        
+        if (purchaseSkill(skillName, cost)) {
+            // Skill purchased successfully
+        }
+    }
+});
+
+// Weapon hotbar clicks
+ui.weaponHotbar.addEventListener('click', (e) => {
+    const slot = e.target.closest('.weapon-slot');
+    if (slot) {
+        const weaponIndex = parseInt(slot.dataset.weapon);
+        switchWeapon(weaponIndex);
+    }
+});
+
+// Keyboard controls
+window.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
+    
+    // Prevent default for game keys
+    if (['w', 'a', 's', 'd', ' ', 'q', '1', '2', '3', 'escape'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+    }
+    
+    // Skill tree toggle
+    if (e.key.toLowerCase() === 'escape') {
+        if (ui.skillTreeModal.classList.contains('hidden')) {
+            ui.skillTreeModal.classList.remove('hidden');
+            updateSkillTreeUI();
+        } else {
+            ui.skillTreeModal.classList.add('hidden');
+        }
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+});
+
+// Mouse controls
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousedown', (e) => {
+    shooting = true;
+    if (!gameRunning && !ui.startScreen.classList.contains('hidden')) {
+        startGame();
+    }
+});
+
+canvas.addEventListener('mouseup', () => {
+    shooting = false;
+});
+
+// Mobile controls
+document.getElementById('dashBtn')?.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    keys['q'] = true;
+});
+
+document.getElementById('dashBtn')?.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    keys['q'] = false;
+});
+
+document.getElementById('weaponSwapBtn')?.addEventListener('click', () => {
+    switchWeapon((currentWeapon + 1) % weapons.length);
+});
+
+document.getElementById('skillTreeBtn')?.addEventListener('click', () => {
+    ui.skillTreeModal.classList.toggle('hidden');
+    if (!ui.skillTreeModal.classList.contains('hidden')) {
+        updateSkillTreeUI();
+    }
+});
+
+document.getElementById('autoFireToggle')?.addEventListener('click', (e) => {
+    const btn = e.target;
+    btn.classList.toggle('active');
+    // Auto-fire logic would go here
+});
+
+// Touch controls for joystick
+let joystickActive = false;
+const joystick = document.getElementById('joystick');
+const joystickHandle = document.getElementById('joystickHandle');
+
+joystick?.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    joystickActive = true;
+});
+
+document.addEventListener('touchmove', (e) => {
+    if (joystickActive && e.touches.length > 0) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = joystick.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const deltaX = touch.clientX - centerX;
+        const deltaY = touch.clientY - centerY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const maxDistance = rect.width / 2 - 25;
+        
+        if (distance <= maxDistance) {
+            joystickHandle.style.left = (50 + (deltaX / maxDistance) * 35) + '%';
+            joystickHandle.style.top = (50 + (deltaY / maxDistance) * 35) + '%';
+            
+            // Convert to movement
+            keys['a'] = deltaX < -10;
+            keys['d'] = deltaX > 10;
+            keys['w'] = deltaY < -10;
+            keys['s'] = deltaY > 10;
+        }
+    }
+});
+
+document.addEventListener('touchend', () => {
+    if (joystickActive) {
+        joystickActive = false;
+        joystickHandle.style.left = '50%';
+        joystickHandle.style.top = '50%';
+        keys['a'] = keys['d'] = keys['w'] = keys['s'] = false;
+    }
+});
+
+// Resize handler
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+// Initialize game
+initPools();
+applySkillEffects();
+updateUI();
+updateSkillTreeUI();
+updateWeaponUI();
+draw();
